@@ -39,8 +39,23 @@ function DetectResultContent() {
     };
   }, [taskId, searchParams]);
 
-  const result = React.useMemo(() => buildTaskResult(task), [task]);
-  const { progress, phase, phaseIndex, isFinished, started } = useDetectionSimulation(task, result);
+  const baseResult = React.useMemo(() => buildTaskResult(task), [task]);
+  const { progress, phase, phaseIndex, isFinished, started, metrics } = useDetectionSimulation(
+    task,
+    baseResult
+  );
+
+  // 用当次场景化随机结果覆盖三个核心指标，保证「看到什么就存什么」
+  const result = React.useMemo(() => {
+    if (!metrics) return baseResult;
+    return {
+      ...baseResult,
+      aiProbability: metrics.aiProbability,
+      similarity: metrics.similarity,
+      matchedSegments: metrics.matchedSegments,
+      riskLevel: metrics.riskLevel,
+    };
+  }, [baseResult, metrics]);
 
   return (
     <DetectShell

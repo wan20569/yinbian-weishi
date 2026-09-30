@@ -1,3 +1,4 @@
+import { SCENARIOS, generateRandomResult, hashSeed } from "./random-result";
 import type { DetectionResult, DetectTypeOption, Task } from "./types";
 
 /**
@@ -67,249 +68,79 @@ export const detectTypeLabel: Record<string, string> = {
   comprehensive: "综合检测",
 };
 
-const resultHigh: DetectionResult = {
-  aiProbability: 98.7,
-  similarity: 87.3,
-  riskLevel: "high",
-  verdict: "该音频具有高度 AI 生成特征，且检出 2 处与已知作品高度相似的片段，建议下架核查后再发行。",
-  waveformData: generateWaveform(20260930),
-  audioDuration: 204,
-  reportNo: "YBS-2026-0930-0042",
-  createdAt: ago(24),
-  evidenceChain: [
-    {
-      key: "cnn",
-      name: "轻量 CNN 鉴别模型",
-      method: "梅尔频谱 + 卷积判别",
-      conclusion: "判定为 AI 生成，置信度高",
-      status: "success",
-      score: 98.7,
-    },
-    {
-      key: "fingerprint",
-      name: "音频指纹比对",
-      method: "指纹检索 + 片段对齐",
-      conclusion: "命中 1 处指纹，相似度 87.3%",
-      status: "success",
-      score: 87.3,
-    },
-    {
-      key: "melody",
-      name: "旋律编曲特征提取",
-      method: "旋律线 / 和弦 / 编曲特征",
-      conclusion: "动机与和声进行高度重合",
-      status: "success",
-      score: 74.6,
-    },
-  ],
-  matchedSegments: [
-    {
-      id: "seg-1",
-      start: 32,
-      end: 45,
-      similarity: 87.3,
-      sourceTitle: "夜色频率 (Night Frequency)",
-      sourceArtist: "陈屿 · 2024 独立发行",
-      source: "fingerprint",
-      matchedAt: ago(24),
-    },
-    {
-      id: "seg-2",
-      start: 112,
-      end: 121,
-      similarity: 64.1,
-      sourceTitle: "潮汐之间",
-      sourceArtist: "蓝岸乐队 · 2023 专辑《回声》",
-      source: "melody",
-      matchedAt: ago(24),
-    },
-  ],
-};
+/**
+ * 按「场景化随机」组装一份完整检测结论。
+ * AI 概率 / 相似度 / 匹配片段全部由 taskId 的种子推导，
+ * 因此任务列表页、详情页、报告三处永远一致。
+ */
+export function buildScenarioResult(input: {
+  taskId: string;
+  fileName: string;
+  duration: number;
+  detectType: Task["detectType"];
+  createdAt?: string;
+}): DetectionResult {
+  const { taskId, fileName, duration, detectType, createdAt } = input;
+  const seed = hashSeed(taskId);
+  const random = generateRandomResult(taskId, duration);
+  const scenario = SCENARIOS[random.scenario];
 
-const resultMedium: DetectionResult = {
-  aiProbability: 63.4,
-  similarity: 41.2,
-  riskLevel: "medium",
-  verdict: "存在部分 AI 辅助创作痕迹，未检出高相似度片段，建议人工复核后使用。",
-  waveformData: generateWaveform(20260821),
-  audioDuration: 187,
-  reportNo: "YBS-2026-0929-0031",
-  createdAt: ago(180),
-  evidenceChain: [
-    {
-      key: "cnn",
-      name: "轻量 CNN 鉴别模型",
-      method: "梅尔频谱 + 卷积判别",
-      conclusion: "倾向 AI 辅助生成，需复核",
-      status: "success",
-      score: 63.4,
-    },
-    {
-      key: "fingerprint",
-      name: "音频指纹比对",
-      method: "指纹检索 + 片段对齐",
-      conclusion: "无显著指纹命中",
-      status: "success",
-      score: 18.5,
-    },
-    {
-      key: "melody",
-      name: "旋律编曲特征提取",
-      method: "旋律线 / 和弦 / 编曲特征",
-      conclusion: "存在常见和声进行重合",
-      status: "success",
-      score: 41.2,
-    },
-  ],
-  matchedSegments: [
-    {
-      id: "seg-3",
-      start: 68,
-      end: 77,
-      similarity: 41.2,
-      sourceTitle: "和声进行库 · IV-V-iii-vi",
-      sourceArtist: "通用和声模式",
-      source: "melody",
-      matchedAt: ago(180),
-    },
-  ],
-};
+  const hitCount = random.matchedSegments.length;
+  const hasAi = random.scenario === "ai_original" || random.scenario === "ai_copy";
+  const melodyHit = random.matchedSegments.some((item) => item.source === "melody");
+  const melodyScore = Number(
+    Math.max(
+      8,
+      random.matchedSegments[1]?.similarity ??
+        (random.matchedSegments[0] ? random.matchedSegments[0].similarity * 0.82 : random.similarity * 0.6 + 5)
+    ).toFixed(1)
+  );
 
-const resultLow: DetectionResult = {
-  aiProbability: 12.4,
-  similarity: 8.6,
-  riskLevel: "low",
-  verdict: "未发现 AI 生成特征，指纹库与旋律库均无显著命中，可正常发行。",
-  waveformData: generateWaveform(20260714),
-  audioDuration: 231,
-  reportNo: "YBS-2026-0928-0026",
-  createdAt: ago(1420),
-  evidenceChain: [
-    {
-      key: "cnn",
-      name: "轻量 CNN 鉴别模型",
-      method: "梅尔频谱 + 卷积判别",
-      conclusion: "判定为真人演唱/演奏",
-      status: "success",
-      score: 12.4,
-    },
-    {
-      key: "fingerprint",
-      name: "音频指纹比对",
-      method: "指纹检索 + 片段对齐",
-      conclusion: "无指纹命中",
-      status: "success",
-      score: 6.2,
-    },
-    {
-      key: "melody",
-      name: "旋律编曲特征提取",
-      method: "旋律线 / 和弦 / 编曲特征",
-      conclusion: "旋律走向独立",
-      status: "success",
-      score: 8.6,
-    },
-  ],
-  matchedSegments: [],
-};
-
-const resultClean2: DetectionResult = {
-  aiProbability: 6.8,
-  similarity: 15.3,
-  riskLevel: "low",
-  verdict: "原创性良好，仅检出通用鼓组素材重合，不影响作品独创性认定。",
-  waveformData: generateWaveform(20260603),
-  audioDuration: 198,
-  reportNo: "YBS-2026-0927-0018",
-  createdAt: ago(2680),
-  evidenceChain: [
-    {
-      key: "cnn",
-      name: "轻量 CNN 鉴别模型",
-      method: "梅尔频谱 + 卷积判别",
-      conclusion: "判定为真人演唱/演奏",
-      status: "success",
-      score: 6.8,
-    },
-    {
-      key: "fingerprint",
-      name: "音频指纹比对",
-      method: "指纹检索 + 片段对齐",
-      conclusion: "仅命中通用鼓组素材",
-      status: "success",
-      score: 15.3,
-    },
-    {
-      key: "melody",
-      name: "旋律编曲特征提取",
-      method: "旋律线 / 和弦 / 编曲特征",
-      conclusion: "旋律走向独立",
-      status: "success",
-      score: 9.1,
-    },
-  ],
-  matchedSegments: [
-    {
-      id: "seg-4",
-      start: 8,
-      end: 14,
-      similarity: 15.3,
-      sourceTitle: "通用鼓组采样包 · Basic Kit 04",
-      sourceArtist: "公有素材库",
-      source: "fingerprint",
-      matchedAt: ago(2680),
-    },
-  ],
-};
-
-const resultMid2: DetectionResult = {
-  aiProbability: 79.2,
-  similarity: 55.7,
-  riskLevel: "medium",
-  verdict: "AI 生成体征明显，检出 1 处中等相似度片段，建议在商用前取得授权或替换该段落。",
-  waveformData: generateWaveform(20260522),
-  audioDuration: 176,
-  reportNo: "YBS-2026-0926-0009",
-  createdAt: ago(4300),
-  evidenceChain: [
-    {
-      key: "cnn",
-      name: "轻量 CNN 鉴别模型",
-      method: "梅尔频谱 + 卷积判别",
-      conclusion: "判定为 AI 生成",
-      status: "success",
-      score: 79.2,
-    },
-    {
-      key: "fingerprint",
-      name: "音频指纹比对",
-      method: "指纹检索 + 片段对齐",
-      conclusion: "命中 1 处中等相似度片段",
-      status: "success",
-      score: 55.7,
-    },
-    {
-      key: "melody",
-      name: "旋律编曲特征提取",
-      method: "旋律线 / 和弦 / 编曲特征",
-      conclusion: "副歌动机部分重合",
-      status: "success",
-      score: 49.8,
-    },
-  ],
-  matchedSegments: [
-    {
-      id: "seg-5",
-      start: 54,
-      end: 63,
-      similarity: 55.7,
-      sourceTitle: "雾港 (Foggy Harbour)",
-      sourceArtist: "周迟 · 2022 EP《潮间》",
-      source: "melody",
-      matchedAt: ago(4300),
-    },
-  ],
-};
+  return {
+    aiProbability: random.aiProbability,
+    similarity: random.similarity,
+    riskLevel: random.riskLevel,
+    verdict: scenario.verdict,
+    waveformData: generateWaveform(seed),
+    audioDuration: duration,
+    reportNo: `YBS-2026-0930-${String((seed % 9000) + 1000)}`,
+    createdAt: createdAt ?? new Date(MOCK_NOW).toISOString(),
+    matchedSegments: random.matchedSegments,
+    evidenceChain: [
+      {
+        key: "cnn",
+        name: "轻量 CNN 鉴别模型",
+        method: "梅尔频谱 + 卷积判别",
+        conclusion: hasAi ? "判定为 AI 生成，置信度高" : "判定为真人演唱/演奏",
+        status: "success",
+        score: random.aiProbability,
+      },
+      {
+        key: "fingerprint",
+        name: "音频指纹比对",
+        method: "指纹检索 + 片段对齐",
+        conclusion:
+          hitCount === 0
+            ? "指纹库无显著命中"
+            : `命中 ${hitCount} 处相似片段，最高 ${random.similarity.toFixed(1)}%`,
+        status: "success",
+        score: random.similarity,
+      },
+      {
+        key: "melody",
+        name: "旋律编曲特征提取",
+        method: "旋律线 / 和弦 / 编曲特征",
+        conclusion: melodyHit
+          ? "动机与和声进行重合"
+          : random.scenario === "human_original"
+            ? "旋律走向独立"
+            : "未见显著旋律重合",
+        status: "success",
+        score: melodyScore,
+      },
+    ],
+  };
+}
 
 /** 任务列表（6 条，覆盖全部状态） */
 export const mockTasks: Task[] = [
@@ -322,7 +153,13 @@ export const mockTasks: Task[] = [
     status: "done",
     detectType: "comprehensive",
     progress: 100,
-    result: resultHigh,
+    result: buildScenarioResult({
+      taskId: "tsk_20260930_001",
+      fileName: "夜色频率_remix_final.wav",
+      duration: 204,
+      detectType: "comprehensive",
+      createdAt: ago(24),
+    }),
   },
   {
     id: "tsk_20260930_002",
@@ -353,7 +190,13 @@ export const mockTasks: Task[] = [
     status: "done",
     detectType: "comprehensive",
     progress: 100,
-    result: resultMedium,
+    result: buildScenarioResult({
+      taskId: "tsk_20260929_004",
+      fileName: "参赛作品_07_海边的信.mp3",
+      duration: 198,
+      detectType: "comprehensive",
+      createdAt: ago(180),
+    }),
   },
   {
     id: "tsk_20260928_005",
@@ -364,7 +207,13 @@ export const mockTasks: Task[] = [
     status: "done",
     detectType: "comprehensive",
     progress: 100,
-    result: resultLow,
+    result: buildScenarioResult({
+      taskId: "tsk_20260928_005",
+      fileName: "专辑母带_01_晨雾.wav",
+      duration: 231,
+      detectType: "comprehensive",
+      createdAt: ago(1420),
+    }),
   },
   {
     id: "tsk_20260927_006",
@@ -389,7 +238,13 @@ export const mockRecentTasks: Task[] = [
     status: "done",
     detectType: "comprehensive",
     progress: 100,
-    result: resultMid2,
+    result: buildScenarioResult({
+      taskId: "tsk_20260926_007",
+      fileName: "翻唱demo_潮汐之间.mp3",
+      duration: 176,
+      detectType: "comprehensive",
+      createdAt: ago(2680),
+    }),
   },
   {
     id: "tsk_20260925_008",
@@ -400,7 +255,13 @@ export const mockRecentTasks: Task[] = [
     status: "done",
     detectType: "comprehensive",
     progress: 100,
-    result: resultClean2,
+    result: buildScenarioResult({
+      taskId: "tsk_20260925_008",
+      fileName: "独立发行_晨雾B面.wav",
+      duration: 198,
+      detectType: "comprehensive",
+      createdAt: ago(4300),
+    }),
   },
 ];
 
@@ -421,73 +282,16 @@ export const mockAccount = {
  * 新上传任务的默认检测结果模板。
  * 保证「新建检测 -> 结果页」流程永远有数据可展示。
  */
-export function buildFreshResult(fileName: string, detectType: string): DetectionResult {
-  const isPlagiarism = detectType === "plagiarism";
-  const aiProbability = isPlagiarism ? 34.6 : 97.4;
-  const similarity = isPlagiarism ? 91.2 : 82.5;
-  const duration = 213;
-  const seed = fileName.length * 7919 + 104729;
-  const stamp = String((seed % 9000) + 1000);
-
-  return {
-    aiProbability,
-    similarity,
-    riskLevel: Math.max(aiProbability, similarity) >= 85 ? "high" : "medium",
-    verdict: isPlagiarism
-      ? "检出 2 处与已知作品高度相似的片段，其中一处相似度超过 90%，建议在商用前取得授权。"
-      : "该音频具有高度 AI 生成特征，副歌段落存在疑似洗稿片段，建议下架核查后再发行。",
-    waveformData: generateWaveform(seed),
-    audioDuration: duration,
-
-    reportNo: `YBS-2026-0930-${stamp}`,
-    createdAt: new Date(MOCK_NOW).toISOString(),
-    evidenceChain: [
-      {
-        key: "cnn",
-        name: "轻量 CNN 鉴别模型",
-        method: "梅尔频谱 + 卷积判别",
-        conclusion: isPlagiarism ? "存在轻度 AI 处理痕迹" : "判定为 AI 生成，置信度高",
-        status: "success",
-        score: aiProbability,
-      },
-      {
-        key: "fingerprint",
-        name: "音频指纹比对",
-        method: "指纹检索 + 片段对齐",
-        conclusion: isPlagiarism ? "命中 1 处高相似度指纹" : "命中 1 处指纹，相似度 82.5%",
-        status: "success",
-        score: similarity,
-      },
-      {
-        key: "melody",
-        name: "旋律编曲特征提取",
-        method: "旋律线 / 和弦 / 编曲特征",
-        conclusion: "副歌动机与和声进行重合",
-        status: "success",
-        score: isPlagiarism ? 68.4 : 71.9,
-      },
-    ],
-    matchedSegments: [
-      {
-        id: "fresh-seg-1",
-        start: 32,
-        end: 45,
-        similarity,
-        sourceTitle: "夜色频率 (Night Frequency)",
-        sourceArtist: "陈屿 · 2024 独立发行",
-        source: "fingerprint",
-        matchedAt: new Date(MOCK_NOW).toISOString(),
-      },
-      {
-        id: "fresh-seg-2",
-        start: 141,
-        end: 152,
-        similarity: isPlagiarism ? 73.8 : 58.2,
-        sourceTitle: "潮汐之间",
-        sourceArtist: "蓝岸乐队 · 2023 专辑《回声》",
-        source: "melody",
-        matchedAt: new Date(MOCK_NOW).toISOString(),
-      },
-    ],
-  };
+export function buildFreshResult(input: {
+  taskId: string;
+  fileName: string;
+  detectType: string;
+  duration?: number;
+}): DetectionResult {
+  return buildScenarioResult({
+    taskId: input.taskId,
+    fileName: input.fileName,
+    duration: input.duration ?? 213,
+    detectType: input.detectType as Task["detectType"],
+  });
 }

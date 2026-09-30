@@ -57,7 +57,12 @@ export function updateTaskResult(id: string, update: Partial<Task>) {
 
 export function buildTaskResult(task: Task): DetectionResult {
   if (task.result) return task.result;
-  const fresh = buildFreshResult(task.fileName, task.detectType);
+  const fresh = buildFreshResult({
+    taskId: task.id,
+    fileName: task.fileName,
+    detectType: task.detectType,
+    duration: task.duration || 213,
+  });
   // 写回内存态，便于「结果页 -> 工作台」回看时保持一致
   updateTaskResult(task.id, { result: fresh, status: "done", progress: 100 });
   return fresh;

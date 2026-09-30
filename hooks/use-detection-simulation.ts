@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { generateRandomResult, type RandomResult } from "@/lib/random-result";
 import type { DetectionResult, Task } from "@/lib/types";
 
 export type DetectionPhase = "parsing" | "cnn" | "fingerprint" | "melody" | "finished";
@@ -39,6 +40,8 @@ function phaseOf(progress: number): DetectionPhase {
 export function useDetectionSimulation(task: Task | null, result: DetectionResult | null) {
   const [progress, setProgress] = React.useState(0);
   const [started, setStarted] = React.useState(false);
+  // 场景化随机结果：初始 null，保证 SSR 首屏不出现随机值（避免 hydration 不一致）
+  const [metrics, setMetrics] = React.useState<RandomResult | null>(null);
   const timerRef = React.useRef<number | null>(null);
 
   const stop = React.useCallback(() => {
@@ -50,6 +53,9 @@ export function useDetectionSimulation(task: Task | null, result: DetectionResul
 
   React.useEffect(() => {
     if (!task) return;
+    // 随机只在副作用里跑一次：同一 taskId 结果稳定，且不在 render 阶段调用随机函数
+    setMetrics(generateRandomResult(task.id, task.duration || 204));
+
     // 历史已完成的任务直接呈现结果，不重跑动画
     if (task.status === "done" && task.result) {
       setProgress(100);
@@ -89,5 +95,6 @@ export function useDetectionSimulation(task: Task | null, result: DetectionResul
     phaseIndex: phaseIndex === -1 ? PHASES.length : phaseIndex,
     isFinished,
     started,
+    metrics,
   };
 }
