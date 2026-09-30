@@ -131,7 +131,7 @@ function DetectResultContent() {
                   标准化报告含检测结论、证据链与片段定位，支持留存归档作为维权举证参考。
                 </p>
               </div>
-              <ReportButton taskId={task.id} reportNo={result.reportNo} />
+              <ReportButton task={task} result={result} />
             </div>
           </div>
         ) : (

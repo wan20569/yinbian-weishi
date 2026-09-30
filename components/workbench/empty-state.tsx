@@ -30,7 +30,7 @@ const presets: Record<
   reports: {
     icon: FolderOpen,
     title: "暂无检测报告",
-    description: "完成检测后点击「生成检测报告」，报告会自动归档到这里并支持重新下载。",
+    description: "完成一次检测后报告将自动归档到这里",
   },
   profile: {
     icon: Sparkles,
@@ -44,11 +44,14 @@ export function EmptyState({
   className,
   compact = false,
   action,
+  footer,
 }: {
   variant?: EmptyVariant;
   className?: string;
   compact?: boolean;
   action?: "upload" | "none";
+  /** 空态下方的补充操作区，例如「载入示例报告」 */
+  footer?: React.ReactNode;
 }) {
   const preset = presets[variant];
   const Icon = preset.icon;
@@ -77,6 +80,7 @@ export function EmptyState({
           </Button>
         </Link>
       ) : null}
+      {footer ? <div className="mt-4">{footer}</div> : null}
     </div>
   );
 }

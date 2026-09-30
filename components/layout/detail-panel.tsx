@@ -117,7 +117,7 @@ export function DetailPanel({ task }: { task: Task | null }) {
             </div>
             <ResultPanel result={result} duration={result.audioDuration} />
             <div className="flex flex-col gap-2">
-              <ReportButton taskId={task.id} reportNo={result.reportNo} />
+              <ReportButton task={task} result={result} variant="ghost" />
               <Link href={`/detect/${task.id}`}>
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-primary">
                   <FileText className="h-3.5 w-3.5" />

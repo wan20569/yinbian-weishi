@@ -406,46 +406,6 @@ export const mockRecentTasks: Task[] = [
 
 export const allMockTasks: Task[] = [...mockTasks, ...mockRecentTasks];
 
-/** 报告中心 mock 数据 */
-export const mockReports = [
-  {
-    id: "rpt_001",
-    taskId: "tsk_20260930_001",
-    title: "《夜色频率_remix_final》AI 音乐鉴别技术意见书",
-    reportNo: "YBS-2026-0930-0042",
-    createdAt: ago(24),
-    status: "issued" as const,
-    pages: 8,
-  },
-  {
-    id: "rpt_002",
-    taskId: "tsk_20260929_004",
-    title: "《参赛作品_07_海边的信》AI 音乐鉴别技术意见书",
-    reportNo: "YBS-2026-0929-0031",
-    createdAt: ago(180),
-    status: "issued" as const,
-    pages: 6,
-  },
-  {
-    id: "rpt_003",
-    taskId: "tsk_20260928_005",
-    title: "《专辑母带_01_晨雾》AI 音乐鉴别技术意见书",
-    reportNo: "YBS-2026-0928-0026",
-    createdAt: ago(1420),
-    status: "issued" as const,
-    pages: 7,
-  },
-  {
-    id: "rpt_004",
-    taskId: "tsk_20260926_007",
-    title: "《翻唱demo_潮汐之间》AI 音乐鉴别技术意见书",
-    reportNo: "YBS-2026-0926-0009",
-    createdAt: ago(2680),
-    status: "archived" as const,
-    pages: 6,
-  },
-];
-
 /** 个人账户 mock */
 export const mockAccount = {
   name: "独立音乐人 · 林声",
