@@ -166,14 +166,29 @@ function riskOf(aiProbability: number, similarity: number): RiskLevel {
   return "low";
 }
 
+export interface GenerateOptions {
+  /**
+   * 强制指定场景（答辩演示脚本用）。
+   * 优先级最高 —— 传入后不再走 taskId 种子选场景，
+   * 但数值仍在场景区间内用种子随机，保持「同一 taskId 刷新稳定」。
+   * 传 null / 不传则沿用原有随机逻辑。
+   */
+  forceScenario?: ScenarioId | null;
+}
+
 /**
  * 生成一次「自洽」的检测结果数值。
  * @param taskId 任务 id，缺省时回落 Math.random（调试用）
  * @param duration 音频时长（秒），用于约束片段位置
+ * @param options.forceScenario 强制场景，答辩演示脚本用
  */
-export function generateRandomResult(taskId?: string, duration = 204): RandomResult {
+export function generateRandomResult(
+  taskId?: string,
+  duration = 204,
+  options: GenerateOptions = {}
+): RandomResult {
   const rand = resolveRandom(taskId);
-  const scenario = pickScenario(taskId);
+  const scenario = options.forceScenario ?? pickScenario(taskId);
   const def = SCENARIOS[scenario];
 
   const pick = ([min, max]: [number, number]) => min + rand() * (max - min);

@@ -9,6 +9,7 @@ import { DetectTypeSelector } from "@/components/detect/detect-type-selector";
 import { SelectedFileCard, UploadDropzone } from "@/components/detect/upload-dropzone";
 import { UploadProgress } from "@/components/detect/upload-progress";
 import { useUploadSimulation } from "@/hooks/use-upload-simulation";
+import { incrementDetectCount } from "@/lib/demo-script";
 import { detectTypeOptions } from "@/lib/mock-data";
 import { createTaskId, registerTask } from "@/lib/mock-service";
 import type { DetectType, Task } from "@/lib/types";
@@ -23,6 +24,9 @@ export default function NewDetectionPage() {
   const handleSelectFile = (selected: File) => {
     start({ name: selected.name, size: selected.size }, (finished) => {
       const id = createTaskId();
+      // 演示计数：只在「上传完成、准备跳转结果页」这一刻 +1，
+      // 刷新结果页不会再经过这里，因此不会重复递增。
+      const demoCount = incrementDetectCount();
       const task: Task = {
         id,
         fileName: finished.name,
@@ -34,7 +38,11 @@ export default function NewDetectionPage() {
         progress: 0,
       };
       registerTask(task);
-      router.push(`/detect/${id}?type=${detectType}&name=${encodeURIComponent(finished.name)}`);
+      // dc = demo count，结果页靠它判断是否走演示脚本；
+      // 6 条预设任务的 URL 不带 dc，永远保持种子随机。
+      router.push(
+        `/detect/${id}?type=${detectType}&name=${encodeURIComponent(finished.name)}&dc=${demoCount}`
+      );
     });
   };
 

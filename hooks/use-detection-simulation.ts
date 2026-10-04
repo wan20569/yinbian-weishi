@@ -2,7 +2,11 @@
 
 import * as React from "react";
 
-import { generateRandomResult, type RandomResult } from "@/lib/random-result";
+import {
+  generateRandomResult,
+  type RandomResult,
+  type ScenarioId,
+} from "@/lib/random-result";
 import type { DetectionResult, Task } from "@/lib/types";
 
 export type DetectionPhase = "parsing" | "cnn" | "fingerprint" | "melody" | "finished";
@@ -37,7 +41,11 @@ function phaseOf(progress: number): DetectionPhase {
  * 模拟检测流水线：解析 -> AI 鉴别 -> 指纹比对 -> 旋律特征提取 -> 完成
  * 总时长约 4.5s
  */
-export function useDetectionSimulation(task: Task | null, result: DetectionResult | null) {
+export function useDetectionSimulation(
+  task: Task | null,
+  result: DetectionResult | null,
+  forceScenario?: ScenarioId | null
+) {
   const [progress, setProgress] = React.useState(0);
   const [started, setStarted] = React.useState(false);
   // 场景化随机结果：初始 null，保证 SSR 首屏不出现随机值（避免 hydration 不一致）
@@ -54,7 +62,11 @@ export function useDetectionSimulation(task: Task | null, result: DetectionResul
   React.useEffect(() => {
     if (!task) return;
     // 随机只在副作用里跑一次：同一 taskId 结果稳定，且不在 render 阶段调用随机函数
-    setMetrics(generateRandomResult(task.id, task.duration || 204));
+    setMetrics(
+      generateRandomResult(task.id, task.duration || 204, {
+        forceScenario: forceScenario ?? null,
+      })
+    );
 
     // 历史已完成的任务直接呈现结果，不重跑动画
     if (task.status === "done" && task.result) {
@@ -83,7 +95,7 @@ export function useDetectionSimulation(task: Task | null, result: DetectionResul
       window.clearTimeout(kickoff);
       stop();
     };
-  }, [task, stop]);
+  }, [task, stop, forceScenario]);
 
   const phase = phaseOf(progress);
   const phaseIndex = PHASES.findIndex((item) => item.key === phase);

@@ -14,3 +14,7 @@ yarn-error.log*
 .vercel
 *.tsbuildinfo
 next-env.d.ts
+
+# 内网穿透工具残留，与项目无关
+cloudflared.exe
+config.yml

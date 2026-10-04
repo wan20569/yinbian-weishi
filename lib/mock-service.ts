@@ -1,4 +1,5 @@
 import { allMockTasks, buildFreshResult, mockTasks } from "@/lib/mock-data";
+import type { ScenarioId } from "@/lib/random-result";
 import type { DetectionResult, DetectType, Task } from "@/lib/types";
 import { MOCK_NOW } from "@/lib/utils";
 
@@ -55,13 +56,17 @@ export function updateTaskResult(id: string, update: Partial<Task>) {
   inMemoryTasks[index] = { ...inMemoryTasks[index], ...update };
 }
 
-export function buildTaskResult(task: Task): DetectionResult {
+export function buildTaskResult(
+  task: Task,
+  forceScenario?: ScenarioId | null
+): DetectionResult {
   if (task.result) return task.result;
   const fresh = buildFreshResult({
     taskId: task.id,
     fileName: task.fileName,
     detectType: task.detectType,
     duration: task.duration || 213,
+    forceScenario: forceScenario ?? null,
   });
   // 写回内存态，便于「结果页 -> 工作台」回看时保持一致
   updateTaskResult(task.id, { result: fresh, status: "done", progress: 100 });

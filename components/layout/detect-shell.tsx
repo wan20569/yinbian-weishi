@@ -14,11 +14,14 @@ export function DetectShell({
   maxWidth = "max-w-[880px]",
   subtitle,
   footerClassName,
+  footerExtra,
 }: {
   children: React.ReactNode;
   maxWidth?: string;
   subtitle?: string;
   footerClassName?: string;
+  /** 页脚右侧附加内容（放置隐藏的「重置演示」入口） */
+  footerExtra?: React.ReactNode;
 }) {
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
@@ -54,6 +57,9 @@ export function DetectShell({
         <div className="rounded-lg border border-border/60 bg-card/60 px-4 py-3">
           <ComplianceNotice />
         </div>
+        {footerExtra ? (
+          <div className="mt-2 flex justify-end px-1">{footerExtra}</div>
+        ) : null}
       </footer>
     </div>
   );

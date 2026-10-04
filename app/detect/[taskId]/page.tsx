@@ -2,11 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpRight, AudioLines, FileText, RadioTower } from "lucide-react";
 
 import { AIProbabilityCard } from "@/components/detect/ai-probability-card";
 import { AudioWaveform } from "@/components/detect/audio-waveform";
+import { DemoResetButton } from "@/components/detect/demo-reset-button";
+import { DemoScriptCardView } from "@/components/detect/demo-script-card";
 import { DetectionProgress } from "@/components/detect/detection-progress";
 import { MatchedSegments } from "@/components/detect/matched-segments";
 import { ReportButton } from "@/components/detect/report-button";
@@ -17,8 +19,15 @@ import { DetectShell } from "@/components/layout/detect-shell";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/use-toast";
 import { useDetectionSimulation } from "@/hooks/use-detection-simulation";
-import { detectTypeLabel } from "@/lib/mock-data";
+import {
+  getDemoCard,
+  getDemoScenario,
+  getDetectCount,
+  resetDetectCount,
+} from "@/lib/demo-script";
+import { detectTypeLabel, mockTasks } from "@/lib/mock-data";
 import { buildTaskResult, resolveTask } from "@/lib/mock-service";
 import type { DetectType, Task } from "@/lib/types";
 import { formatDateTime, formatDuration } from "@/lib/utils";
@@ -26,6 +35,7 @@ import { formatDateTime, formatDuration } from "@/lib/utils";
 function DetectResultContent() {
   const params = useParams<{ taskId: string }>();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const taskId = params.taskId;
 
   const task: Task = React.useMemo(() => {
@@ -39,10 +49,57 @@ function DetectResultContent() {
     };
   }, [taskId, searchParams]);
 
-  const baseResult = React.useMemo(() => buildTaskResult(task), [task]);
+  /**
+   * 演示计数：优先取 URL 上的 dc（上传页跳转时带上，刷新结果页不会丢）。
+   * 没有 dc 时，只有「非预设任务」才回落到 localStorage 计数 ——
+   * 否则点开任意一条预设任务都会被演示脚本带偏。
+   */
+  const isPresetTask = React.useMemo(
+    () => mockTasks.some((item) => item.id === taskId),
+    [taskId]
+  );
+  const dcFromUrl = Number.parseInt(searchParams.get("dc") ?? "", 10);
+  const [fallbackCount, setFallbackCount] = React.useState(0);
+  React.useEffect(() => {
+    if (Number.isFinite(dcFromUrl)) return;
+    setFallbackCount(getDetectCount());
+  }, [dcFromUrl]);
+
+  const demoCount =
+    Number.isFinite(dcFromUrl) && dcFromUrl > 0
+      ? dcFromUrl
+      : isPresetTask
+        ? 0
+        : fallbackCount;
+
+  // 演示脚本：第 1/2 次钉死场景，第 3 次起返回 null 走种子随机
+  const forceScenario = demoCount > 0 ? getDemoScenario(demoCount) : null;
+  const demoCard = demoCount > 0 ? getDemoCard(demoCount) : null;
+
+  /** ?reset=1 -> 重置计数后用 replace 抹掉参数，避免刷新又重置一次 */
+  React.useEffect(() => {
+    if (searchParams.get("reset") !== "1") return;
+    resetDetectCount();
+    setFallbackCount(0);
+    toast({
+      title: "演示计数已重置",
+      description: "下一次上传将重新从第 1 次（原创作品）开始演示",
+      variant: "success",
+    });
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("reset");
+    const query = next.toString();
+    router.replace(query ? `/detect/${taskId}?${query}` : `/detect/${taskId}`);
+  }, [searchParams, router, taskId]);
+
+  const baseResult = React.useMemo(
+    () => buildTaskResult(task, forceScenario),
+    [task, forceScenario]
+  );
   const { progress, phase, phaseIndex, isFinished, started, metrics } = useDetectionSimulation(
     task,
-    baseResult
+    baseResult,
+    forceScenario
   );
 
   // 用当次场景化随机结果覆盖三个核心指标，保证「看到什么就存什么」
@@ -61,6 +118,7 @@ function DetectResultContent() {
     <DetectShell
       maxWidth="max-w-[880px]"
       subtitle={`任务编号 ${task.id} · 结果由「AI 鉴别 + 指纹比对 + 旋律特征提取」三段链路综合判定`}
+      footerExtra={<DemoResetButton />}
     >
       <div className="space-y-4">
         {/* 任务概览 */}
@@ -115,6 +173,10 @@ function DetectResultContent() {
         {/* 结果区 */}
         {isFinished ? (
           <div className="space-y-4 animate-fade-up">
+            {demoCard ? (
+              <DemoScriptCardView card={demoCard} segments={result.matchedSegments} />
+            ) : null}
+
             <div className="grid gap-3 md:grid-cols-2">
               <AIProbabilityCard probability={result.aiProbability} animate />
               <SimilarityCard similarity={result.similarity} animate />
