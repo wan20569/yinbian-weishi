@@ -79,10 +79,15 @@ export function useDetectionSimulation(
   // 模型真实返回
   const [live, setLive] = React.useState<InferencePayload | null>(null);
   const [inferenceStatus, setInferenceStatus] = React.useState<InferenceStatus>("idle");
+  /** 是否真的发出过推理请求 —— 用来区分「没音频可测」和「测了但没拿到结果」 */
+  const [attempted, setAttempted] = React.useState(false);
 
   const timerRef = React.useRef<number | null>(null);
   const firedRef = React.useRef(false);
   const abortRef = React.useRef<AbortController | null>(null);
+  /** 最新 task 的快照，供 effect 内部读取，避免把 task 放进依赖数组 */
+  const taskRef = React.useRef<Task | null>(task);
+  taskRef.current = task;
 
   const stop = React.useCallback(() => {
     if (timerRef.current) window.clearInterval(timerRef.current);
@@ -98,19 +103,34 @@ export function useDetectionSimulation(
   React.useEffect(() => cancelInference, [cancelInference]);
 
   React.useEffect(() => {
-    if (!task) return;
+    const taskId = taskRef.current?.id;
+    if (!taskId) return;
+
+    /**
+     * 关键：依赖数组里不能出现 task 对象。
+     *
+     * 结果页的 task 是 useMemo([taskId, searchParams]) 算出来的，RSC 导航收尾时
+     * searchParams 会换新引用、task 随之重建，effect 就会重跑：进度被重置成 0、
+     * in-flight 请求被 abort、live 被清空，整页退回 scenario 随机数
+     * （表现为「后端明明返回了，页面却是随机值」）。
+     *
+     * 现在依赖只有 stop / cancelInference（都是 useCallback([]) 的稳定引用），
+     * 所以本 effect 只在挂载时执行一次，task 通过 ref 读取最新值。
+     */
+    const current = taskRef.current as Task;
 
     // 换任务时清掉上一个任务的真实结果与「已发起」标记
     firedRef.current = false;
     cancelInference();
     setLive(null);
     setInferenceStatus("idle");
+    setAttempted(false);
 
     // 随机只在副作用里跑一次：同一 taskId 结果稳定，且不在 render 阶段调用随机函数
-    setMetrics(generateRandomResult(task.id, task.duration || 204));
+    setMetrics(generateRandomResult(current.id, current.duration || 204));
 
     // 历史已完成的任务直接呈现结果，不重跑动画
-    if (task.status === "done" && task.result) {
+    if (current.status === "done" && current.result) {
       setProgress(100);
       setStarted(true);
       return;
@@ -136,12 +156,13 @@ export function useDetectionSimulation(
       window.clearTimeout(kickoff);
       stop();
     };
-  }, [task, stop, cancelInference]);
+  }, [stop, cancelInference]);
 
   /** 进度过 30% 时发起一次真实推理（只发一次） */
   React.useEffect(() => {
     if (firedRef.current) return;
-    if (!task) return;
+    const currentTaskId = taskRef.current?.id;
+    if (!currentTaskId) return;
     if (progress < INFERENCE_TRIGGER) return;
 
     firedRef.current = true;
@@ -154,6 +175,7 @@ export function useDetectionSimulation(
 
     const controller = new AbortController();
     abortRef.current = controller;
+    setAttempted(true);
     setInferenceStatus("loading");
 
     /**
@@ -188,7 +210,7 @@ export function useDetectionSimulation(
         console.warn("[detect] 模型推理失败，已降级为随机结果：", error);
         setInferenceStatus("failed");
       });
-  }, [progress, task, file]);
+  }, [progress, file]);
 
   /**
    * 看门狗：万一请求既没成功也没失败（极端竞态 / 进程被挂起），
@@ -215,12 +237,12 @@ export function useDetectionSimulation(
   /**
    * 三态数据来源，直接对应界面徽章：
    *   model    —— 模型返回成功，界面用真实数值
-   *   fallback —— 有音频但请求失败（超时 / 5xx / 返回体不合法），用随机结果兜底
+   *   fallback —— 发出过请求但没拿到结果（超时 / 5xx / 被中断 / 返回体不合法），用随机结果兜底
    *   scenario —— 根本没有音频可推理（预设任务、刷新后 File 丢失），用种子随机
    */
   const source: ResultSource = live
     ? "model"
-    : inferenceStatus === "failed"
+    : attempted || inferenceStatus === "failed"
       ? "fallback"
       : "scenario";
 

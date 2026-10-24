@@ -131,8 +131,10 @@ export function mergeInferenceResult(
       similarity: scenario.similarity,
       matchedSegments: scenario.matchedSegments,
       riskLevel: scenario.riskLevel,
+      // 兜底分支不能沿用「指纹库无显著命中」这类结论 —— 那些检测根本没跑
       verdict:
-        `当前为随机结果（模型未参与判定）。参考结论：${SCENARIOS[scenario.scenario].verdict}`,
+        "当前为随机结果：模型未参与判定，也未进行声纹比对。" +
+        "此页仅供界面预览，请重新上传音频以获取真实检测结论。",
       evidenceChain: buildEvidence(
         base.evidenceChain,
         scenario.aiProbability,

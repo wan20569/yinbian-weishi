@@ -28,7 +28,10 @@ import { cn, formatDateTime, formatDuration } from "@/lib/utils";
 /** 三态数据来源对应的徽章文案 */
 const SOURCE_LABEL: Record<string, { text: string; hint: string }> = {
   model: { text: "模型实时判定", hint: "该结果由本地 CNN 模型实际推理得出" },
-  fallback: { text: "模型推理失败 · 已降级随机", hint: "模型请求超时或出错，已回落到随机结果" },
+  fallback: {
+    text: "模型推理失败 · 已降级随机",
+    hint: "模型请求超时、返回异常或被中断，已回落到随机结果",
+  },
   scenario: { text: "无原始音频 · 随机结果", hint: "没有可推理的音频（预设任务或刷新后文件已丢失）" },
 };
 
@@ -70,10 +73,11 @@ function DetectResultContent() {
   );
 
   /**
-   * 是否真的做了声纹比对：只有模型明确回报了 similarity 才算。
-   * 影响相似度卡、命中片段、证据链三处的文案与数值呈现。
+   * 是否真的做了声纹比对：只有 source === "model" 且模型明确回报了 similarity 才算。
+   * 兜底/随机分支里的相似度是编出来的，不能拿去支撑「高度相似/无显著命中」这类结论。
    */
-  const similarityAvailable = live ? live.similarityAvailable !== false : true;
+  const similarityAvailable =
+    source === "model" ? live?.similarityAvailable !== false : false;
 
   /** 开发期对账：打印最终渲染所用的数值，可与 [Model API] 那条逐字段比 */
   React.useEffect(() => {
