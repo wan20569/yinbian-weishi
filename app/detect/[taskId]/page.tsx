@@ -80,6 +80,7 @@ function DetectResultContent() {
     if (process.env.NODE_ENV === "production" || !isFinished) return;
     console.info(
       `[UI Render] 前端渲染结果: ${JSON.stringify({
+        taskId: task.id,
         source,
         aiProbability: result.aiProbability,
         similarity: result.similarity,
@@ -89,7 +90,7 @@ function DetectResultContent() {
         riskLevel: result.riskLevel,
       })}`
     );
-  }, [isFinished, source, result, similarityAvailable]);
+  }, [isFinished, source, result, similarityAvailable, task.id]);
 
   return (
     <DetectShell

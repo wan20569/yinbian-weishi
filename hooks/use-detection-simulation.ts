@@ -2,7 +2,11 @@
 
 import * as React from "react";
 
-import { runInference, type InferencePayload } from "@/lib/inference-client";
+import {
+  INFERENCE_TIMEOUT_MS,
+  runInference,
+  type InferencePayload,
+} from "@/lib/inference-client";
 import { generateRandomResult, type RandomResult } from "@/lib/random-result";
 import type { DetectionResult, Task } from "@/lib/types";
 
@@ -152,19 +156,55 @@ export function useDetectionSimulation(
     abortRef.current = controller;
     setInferenceStatus("loading");
 
+    /**
+     * 只认「当前这次请求」的结果。
+     *
+     * 这里不能用 controller.signal.aborted 做判断：请求被中断（切任务、
+     * Fast Refresh 重建组件）时 abort 先于 then/catch 执行，一旦在 then 里
+     * 直接 return，inferenceStatus 就永远停在 "loading"，
+     * 而 isFinished 依赖它 —— 页面会卡在 100% 骨架屏（后端其实早就返回了）。
+     *
+     * 正确做法是比较 abortRef：被新请求取代才丢弃，否则一定要落状态。
+     */
+    const isCurrent = () => abortRef.current === controller;
+
     runInference(file, { signal: controller.signal })
       .then((payload) => {
-        if (controller.signal.aborted) return;
+        if (!isCurrent()) {
+          console.info("[detect] 丢弃过期请求的返回结果");
+          return;
+        }
+        abortRef.current = null;
         setLive(payload);
         setInferenceStatus("done");
       })
       .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
+        if (!isCurrent()) {
+          console.info("[detect] 丢弃过期请求的错误");
+          return;
+        }
+        abortRef.current = null;
         // 超时 / 后端未启动 / 返回体不合法 —— 一律降级到随机结果，不抛给页面
         console.warn("[detect] 模型推理失败，已降级为随机结果：", error);
         setInferenceStatus("failed");
       });
   }, [progress, task, file]);
+
+  /**
+   * 看门狗：万一请求既没成功也没失败（极端竞态 / 进程被挂起），
+   * 超过超时预算还没落状态就强制降级，保证页面不会永远停在骨架屏。
+   */
+  React.useEffect(() => {
+    if (inferenceStatus !== "loading") return;
+    const timer = window.setTimeout(() => {
+      setInferenceStatus((prev) => {
+        if (prev !== "loading") return prev;
+        console.warn("[detect] 推理请求超过预算未返回，已强制降级为随机结果");
+        return "failed";
+      });
+    }, INFERENCE_TIMEOUT_MS + 2_000);
+    return () => window.clearTimeout(timer);
+  }, [inferenceStatus]);
 
   const phase = phaseOf(progress);
   const phaseIndex = PHASES.findIndex((item) => item.key === phase);

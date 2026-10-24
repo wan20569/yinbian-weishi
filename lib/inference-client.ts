@@ -46,7 +46,11 @@ export class InferenceError extends Error {
 }
 
 const ENDPOINT = process.env.NEXT_PUBLIC_INFERENCE_URL || "/api/infer";
-const DEFAULT_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_INFERENCE_TIMEOUT ?? 10_000);
+/** 默认超时。导出给调用方做看门狗用（保证请求一定会落状态） */
+export const INFERENCE_TIMEOUT_MS = Number(
+  process.env.NEXT_PUBLIC_INFERENCE_TIMEOUT ?? 10_000
+);
+const DEFAULT_TIMEOUT_MS = INFERENCE_TIMEOUT_MS;
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 function clamp(value: number, min: number, max: number): number {
