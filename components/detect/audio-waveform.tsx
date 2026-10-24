@@ -177,10 +177,14 @@ export function AudioWaveform({
           <button
             type="button"
             onClick={() => setPlaying((prev) => !prev)}
-            className="grid h-9 w-9 place-items-center rounded-full border border-primary/30 bg-primary/10 text-primary transition-colors hover:bg-primary/18"
+            className="group grid h-9 w-9 place-items-center rounded-full border border-primary/30 bg-primary/10 text-primary transition-colors hover:bg-primary/18"
             aria-label={playing ? "暂停" : "播放"}
           >
-            {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            {playing ? (
+              <Pause className="h-4 w-4 transition-transform duration-200 group-hover:scale-130" />
+            ) : (
+              <Play className="h-4 w-4 transition-transform duration-200 group-hover:scale-130" />
+            )}
           </button>
           <div className="flex-1">
             <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">

@@ -84,10 +84,12 @@ export function ReportsView({ searchTerm }: { searchTerm: string }) {
           <button
             type="button"
             onClick={handleLoadSamples}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground/70 underline-offset-4 transition-colors hover:text-primary hover:underline"
+            className="group inline-flex items-center gap-1 text-xs text-muted-foreground/70 underline-offset-4 transition-colors hover:text-primary hover:underline"
           >
-            <Sparkles className="h-3 w-3" />
-            载入示例报告（演示用）
+            <Sparkles className="h-3 w-3 transition-transform duration-200 group-hover:scale-130" />
+            <span className="inline-block transition-transform duration-200 group-hover:scale-110 group-active:scale-110">
+              载入示例报告（演示用）
+            </span>
           </button>
         }
       />
@@ -136,12 +138,12 @@ export function ReportsView({ searchTerm }: { searchTerm: string }) {
             <button
               type="button"
               onClick={() => openTask(report)}
-              className="min-w-0 flex-1 text-left"
+              className="group/row min-w-0 flex-1 text-left"
             >
-              <p className="truncate text-[12px] text-foreground transition-colors group-hover:text-primary">
+              <p className="origin-left truncate text-[12px] text-foreground transition-all duration-200 group-hover:text-primary group-hover:scale-110 group-active/row:scale-110">
                 《{report.fileName.replace(/\.[^.]+$/, "")}》AI 音乐鉴别技术意见书
               </p>
-              <p className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-muted-foreground">
+              <p className="mt-1 flex origin-left flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-muted-foreground transition-transform duration-200 group-hover:scale-110 group-active/row:scale-110">
                 <span>{detectTypeLabel[report.detectType] ?? report.detectType}</span>
                 <span>
                   AI {report.aiProbability.toFixed(1)}% · 相似度{" "}
@@ -160,10 +162,10 @@ export function ReportsView({ searchTerm }: { searchTerm: string }) {
               <button
                 type="button"
                 onClick={() => openTask(report)}
-                className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-primary"
+                className="group/icon rounded-md p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-primary"
                 aria-label="查看检测详情"
               >
-                <ArrowUpRight className="h-4 w-4" />
+                <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover/icon:scale-130" />
               </button>
               <button
                 type="button"
@@ -171,10 +173,10 @@ export function ReportsView({ searchTerm }: { searchTerm: string }) {
                   removeReport(report.taskId);
                   toast({ title: "报告已删除", description: report.reportNo });
                 }}
-                className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                className="group/icon rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                 aria-label="删除报告"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4 transition-transform duration-200 group-hover/icon:scale-130" />
               </button>
             </div>
           </div>

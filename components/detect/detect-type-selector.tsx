@@ -50,7 +50,7 @@ export function DetectTypeSelector({
                     : "border-border bg-secondary text-muted-foreground"
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4 transition-transform duration-200 group-hover:scale-130" />
               </span>
               <span
                 className={cn(

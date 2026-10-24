@@ -42,10 +42,10 @@ export function Toaster() {
               <button
                 type="button"
                 onClick={() => removeToast(item.id)}
-                className="rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                className="group rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
                 aria-label="关闭提示"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-3.5 w-3.5 transition-transform duration-200 group-hover:scale-130" />
               </button>
             </div>
           </div>

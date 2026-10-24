@@ -40,31 +40,33 @@ export function ListView({
             type="button"
             onClick={() => onSelect(task)}
             className={cn(
-              "grid w-full grid-cols-[minmax(0,1fr)_112px_92px_112px_128px_92px] items-center gap-4 px-5 py-3 text-left transition-colors",
+              "group grid w-full grid-cols-[minmax(0,1fr)_112px_92px_112px_128px_92px] items-center gap-4 px-5 py-3 text-left transition-colors",
               selectedId === task.id ? "bg-primary/[0.07]" : "hover:bg-secondary/40"
             )}
           >
             <span className="flex items-center gap-2">
-              <span className="truncate text-[12px] text-foreground">{task.fileName}</span>
+              <span className="origin-left truncate text-[12px] text-foreground transition-transform duration-200 group-hover:scale-110 group-active:scale-110">
+                {task.fileName}
+              </span>
               <Link
                 href={`/detect/${task.id}`}
                 onClick={(event) => event.stopPropagation()}
-                className="shrink-0 text-muted-foreground transition-colors hover:text-primary"
+                className="group/link shrink-0 text-muted-foreground transition-colors hover:text-primary"
                 aria-label="打开结果页"
               >
-                <ExternalLink className="h-3 w-3" />
+                <ExternalLink className="h-3 w-3 transition-transform duration-200 group-hover/link:scale-130" />
               </Link>
             </span>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="origin-left text-[11px] text-muted-foreground transition-transform duration-200 group-hover:scale-110 group-active:scale-110">
               {detectTypeLabel[task.detectType]}
             </span>
-            <span className="text-[11px] tabular-nums text-muted-foreground">
+            <span className="origin-left text-[11px] tabular-nums text-muted-foreground transition-transform duration-200 group-hover:scale-110 group-active:scale-110">
               {task.duration > 0 ? formatDuration(task.duration) : "—"}
             </span>
-            <span className="text-[11px] tabular-nums text-muted-foreground">
+            <span className="origin-left text-[11px] tabular-nums text-muted-foreground transition-transform duration-200 group-hover:scale-110 group-active:scale-110">
               {formatFileSize(task.fileSize)}
             </span>
-            <span className="text-[11px] tabular-nums text-muted-foreground">
+            <span className="origin-left text-[11px] tabular-nums text-muted-foreground transition-transform duration-200 group-hover:scale-110 group-active:scale-110">
               {formatDateTime(new Date(task.createdAt))}
             </span>
             <span className="flex justify-end">

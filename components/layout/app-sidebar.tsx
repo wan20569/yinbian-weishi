@@ -51,8 +51,10 @@ export function AppSidebar({ view, onChangeView, pendingCount }: AppSidebarProps
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               )}
             >
-              <Icon className="h-4 w-4" />
-              <span className="flex-1 text-left">{item.label}</span>
+              <Icon className="h-4 w-4 transition-transform duration-200 group-hover:scale-130" />
+              <span className="flex-1 origin-left text-left transition-transform duration-200 group-hover:scale-110 group-active:scale-110">
+                {item.label}
+              </span>
               {item.key === "list" && pendingCount > 0 ? (
                 <span
                   className={cn(

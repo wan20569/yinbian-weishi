@@ -39,10 +39,10 @@ export function TaskCard({ task, selected = false, onSelect }: TaskCardProps) {
               : "border-border bg-secondary text-primary"
           )}
         >
-          <AudioLines className="h-4 w-4" />
+          <AudioLines className="h-4 w-4 transition-transform duration-200 group-hover:scale-130" />
         </span>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 origin-left transition-transform duration-200 group-hover:scale-110 group-active:scale-110">
           <div className="flex items-start justify-between gap-2">
             <p className="truncate text-[13px] font-medium text-foreground">{task.fileName}</p>
             <StatusBadge status={task.status} />

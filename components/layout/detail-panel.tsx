@@ -118,9 +118,9 @@ export function DetailPanel({ task }: { task: Task | null }) {
             <ResultPanel result={result} duration={result.audioDuration} />
             <div className="flex flex-col gap-2">
               <ReportButton task={task} result={result} variant="ghost" />
-              <Link href={`/detect/${task.id}`}>
+              <Link href={`/detect/${task.id}`} className="group/link">
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-primary">
-                  <FileText className="h-3.5 w-3.5" />
+                  <FileText className="h-3.5 w-3.5 transition-transform duration-200 group-hover/link:scale-130" />
                   查看完整结果页
                 </span>
               </Link>

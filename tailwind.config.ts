@@ -17,6 +17,11 @@ const config: Config = {
       },
     },
     extend: {
+      // Tailwind 默认 scale 刻度只有 0/50/75/90/95/100/105/110/125/150，
+      // 没有 130。这里补上，供图标悬停放大使用（scale-130 = 1.3 倍）。
+      scale: {
+        130: "1.3",
+      },
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
       },

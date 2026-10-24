@@ -33,8 +33,8 @@ export function TopBar({
     <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-background/80 px-6 backdrop-blur">
       <h1 className="shrink-0 text-[15px] font-medium tracking-tight text-foreground">{title}</h1>
 
-      <div className="relative ml-2 max-w-[360px] flex-1">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <div className="group relative ml-2 max-w-[360px] flex-1">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground transition-transform duration-200 group-hover:scale-130 group-focus-within:scale-130" />
         <Input
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
@@ -55,10 +55,10 @@ export function TopBar({
 
         <button
           type="button"
-          className="relative grid h-9 w-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="group relative grid h-9 w-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           aria-label="通知"
         >
-          <Bell className="h-4 w-4" />
+          <Bell className="h-4 w-4 transition-transform duration-200 group-hover:scale-130" />
           <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
         </button>
 
@@ -66,12 +66,12 @@ export function TopBar({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex h-9 items-center gap-2 rounded-md pl-1 pr-2 transition-colors hover:bg-secondary"
+              className="group flex h-9 items-center gap-2 rounded-md pl-1 pr-2 transition-colors hover:bg-secondary"
             >
-              <Avatar className="h-7 w-7">
+              <Avatar className="h-7 w-7 transition-transform duration-200 group-hover:scale-130">
                 <AvatarFallback>{mockAccount.avatarText}</AvatarFallback>
               </Avatar>
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 group-hover:scale-130" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">

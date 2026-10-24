@@ -71,7 +71,7 @@ export function UploadDropzone({ onSelectFile, disabled = false, className }: Up
               : "border-border bg-secondary text-primary"
           )}
         >
-          <Upload className="h-6 w-6" />
+          <Upload className="h-6 w-6 transition-transform duration-200 group-hover:scale-130" />
         </span>
 
         <p className="mt-5 text-[15px] font-medium text-foreground">拖拽音频到此处，或点击选择文件</p>

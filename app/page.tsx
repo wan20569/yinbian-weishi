@@ -103,9 +103,11 @@ function WorkbenchContent() {
                         {filters.map((item) => {
                           const Icon = item.icon;
                           return (
-                            <TabsTrigger key={item.key} value={item.key}>
-                              <Icon className="h-3.5 w-3.5" />
-                              {item.label}
+                            <TabsTrigger key={item.key} value={item.key} className="group">
+                              <Icon className="h-3.5 w-3.5 transition-transform duration-200 group-hover:scale-130" />
+                              <span className="inline-block transition-transform duration-200 group-hover:scale-110 group-active:scale-110">
+                                {item.label}
+                              </span>
                             </TabsTrigger>
                           );
                         })}
