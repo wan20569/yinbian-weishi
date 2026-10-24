@@ -36,6 +36,27 @@ export function formatFileSize(bytes: number) {
  */
 export const MOCK_NOW = new Date("2026-09-30T18:30:00+08:00").getTime();
 
+/**
+ * 固定的 UTC+8（东八区）偏移。
+ *
+ * 时间文案一律按固定时区手工计算，绝不依赖运行环境的本地时区与 ICU：
+ * 服务端（Node）与浏览器可能处于不同 TZ / 不同 ICU 数据版本，
+ * `getHours()` 或 `toLocaleDateString("zh-CN")` 的产出会不一致 → hydration mismatch。
+ */
+const FIXED_TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/** 把任意时刻换算成「东八区日历字段」，两端结果恒定 */
+function fixedTzParts(date: Date) {
+  const shifted = new Date(date.getTime() + FIXED_TZ_OFFSET_MS);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    hours: shifted.getUTCHours(),
+    minutes: shifted.getUTCMinutes(),
+  };
+}
+
 /** 相对时间（以 MOCK_NOW 为基准，保证 SSR/CSR 一致） */
 export function formatRelativeTime(iso: string, now: number = MOCK_NOW) {
   const target = new Date(iso).getTime();
@@ -47,14 +68,16 @@ export function formatRelativeTime(iso: string, now: number = MOCK_NOW) {
   if (hours < 24) return `${hours} 小时前`;
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days} 天前`;
-  return new Date(iso).toLocaleDateString("zh-CN");
+  // 手写 YYYY/M/D：不用 toLocaleDateString，避免 Node / 浏览器 ICU 差异
+  const { year, month, day } = fixedTzParts(new Date(iso));
+  return `${year}/${month}/${day}`;
 }
 
+/** 绝对时间（固定 UTC+8，保证 SSR/CSR 一致） */
 export function formatDateTime(date: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(
-    date.getHours()
-  )}:${pad(date.getMinutes())}`;
+  const { year, month, day, hours, minutes } = fixedTzParts(date);
+  return `${year}-${pad(month)}-${pad(day)} ${pad(hours)}:${pad(minutes)}`;
 }
 
 export function clamp(value: number, min: number, max: number) {

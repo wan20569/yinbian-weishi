@@ -18,3 +18,13 @@ next-env.d.ts
 # 内网穿透工具残留，与项目无关
 cloudflared.exe
 config.yml
+
+# Python 推理环境与模型权重（不入库）
+.venv-infer/
+__pycache__/
+*.pt
+*.pth
+*.onnx
+
+# 软著材料由 scripts/make_copyright_docs.py 生成，随时可重跑，不入库
+软著材料/

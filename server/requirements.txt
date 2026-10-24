@@ -1,0 +1,13 @@
+# AI 音乐检测 · 本地推理环境
+# 安装：.venv-infer\Scripts\pip install -r server\requirements.txt -i https://pypi.org/simple
+
+torch>=2.0          # 加载 .pt 权重 + 前向推理，CPU 版足够（模型仅 1.3MB）
+numpy>=1.24         # 必需：checkpoint 里的 mel_filters 是 numpy 数组，缺了无法反序列化
+soundfile>=0.12     # 解码 wav/flac/mp3/ogg（wheel 自带 libsndfile 1.2，支持 mp3）
+scipy>=1.10         # resample_poly：任意采样率重采样到 16k
+av>=12              # 自带 FFmpeg：解码 m4a/aac/mp4（很多「.mp3」其实是 MP4 容器）
+
+# HTTP 服务（server/serve.py）
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9    # UploadFile / Form 解析必需，缺了启动就报错

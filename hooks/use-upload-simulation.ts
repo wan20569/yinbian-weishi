@@ -9,6 +9,8 @@ export type UploadStage = "idle" | "uploading" | "finishing" | "done";
 export interface SelectedFile {
   name: string;
   size: number;
+  /** 原始文件对象，跨路由传给推理接口用（只存浏览器内存，不序列化） */
+  file: File;
 }
 
 export function useUploadSimulation() {

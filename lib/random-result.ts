@@ -69,15 +69,6 @@ export const SCENARIOS: Record<ScenarioId, ScenarioDef> = {
 
 export const SCENARIO_IDS = Object.keys(SCENARIOS) as ScenarioId[];
 
-/**
- * 场景钉死表：给指定 taskId 指定场景，保证演示时能稳定看到想要的象限。
- * 只钉旗舰任务，其余保持纯随机。
- */
-export const SCENARIO_PIN: Record<string, ScenarioId> = {
-  tsk_20260930_001: "ai_copy",
-  tsk_20260930_002: "human_original",
-};
-
 // ─────────────────────────── 种子随机 ───────────────────────────
 
 /** FNV-1a：字符串 -> 32 位整数种子 */
@@ -153,8 +144,6 @@ export interface RandomResult {
 
 /** 按种子挑一个场景 */
 export function pickScenario(taskId?: string): ScenarioId {
-  const pinned = taskId ? SCENARIO_PIN[taskId] : undefined;
-  if (pinned) return pinned;
   const rand = resolveRandom(taskId);
   return SCENARIO_IDS[Math.floor(rand() * SCENARIO_IDS.length)];
 }
@@ -168,19 +157,19 @@ function riskOf(aiProbability: number, similarity: number): RiskLevel {
 
 export interface GenerateOptions {
   /**
-   * 强制指定场景（答辩演示脚本用）。
-   * 优先级最高 —— 传入后不再走 taskId 种子选场景，
-   * 但数值仍在场景区间内用种子随机，保持「同一 taskId 刷新稳定」。
-   * 传 null / 不传则沿用原有随机逻辑。
+   * 指定场景，用于两类内部场景：
+   *   1. 模型只给出 AI 概率、不产出相似度时，按概率所在象限取一个自洽的相似度；
+   *   2. 需要复现某个象限的固定数值。
+   * 不传则按 taskId 种子随机挑场景。
    */
-  forceScenario?: ScenarioId | null;
+  scenario?: ScenarioId | null;
 }
 
 /**
  * 生成一次「自洽」的检测结果数值。
  * @param taskId 任务 id，缺省时回落 Math.random（调试用）
  * @param duration 音频时长（秒），用于约束片段位置
- * @param options.forceScenario 强制场景，答辩演示脚本用
+ * @param options.scenario 指定场景，缺省按种子选择
  */
 export function generateRandomResult(
   taskId?: string,
@@ -188,7 +177,7 @@ export function generateRandomResult(
   options: GenerateOptions = {}
 ): RandomResult {
   const rand = resolveRandom(taskId);
-  const scenario = options.forceScenario ?? pickScenario(taskId);
+  const scenario = options.scenario ?? pickScenario(taskId);
   const def = SCENARIOS[scenario];
 
   const pick = ([min, max]: [number, number]) => min + rand() * (max - min);

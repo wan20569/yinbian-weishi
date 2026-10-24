@@ -1,9 +1,4 @@
-import {
-  SCENARIOS,
-  generateRandomResult,
-  hashSeed,
-  type ScenarioId,
-} from "./random-result";
+import { SCENARIOS, generateRandomResult, hashSeed } from "./random-result";
 import type { DetectionResult, DetectTypeOption, Task } from "./types";
 
 /**
@@ -84,16 +79,10 @@ export function buildScenarioResult(input: {
   duration: number;
   detectType: Task["detectType"];
   createdAt?: string;
-  /**
-   * 强制场景（答辩演示脚本用）。
-   * 只有「上传页跳转过来的任务」才传 —— lib/mock-data.ts 里那 6 条预设任务
-   * 一律不传，避免它们跟着演示计数走、也避免 SSR/CSR 读 localStorage 不一致。
-   */
-  forceScenario?: ScenarioId | null;
 }): DetectionResult {
-  const { taskId, fileName, duration, detectType, createdAt, forceScenario } = input;
+  const { taskId, fileName, duration, detectType, createdAt } = input;
   const seed = hashSeed(taskId);
-  const random = generateRandomResult(taskId, duration, { forceScenario });
+  const random = generateRandomResult(taskId, duration);
   const scenario = SCENARIOS[random.scenario];
 
   const hitCount = random.matchedSegments.length;
@@ -298,14 +287,11 @@ export function buildFreshResult(input: {
   fileName: string;
   detectType: string;
   duration?: number;
-  /** 强制场景，透传给 buildScenarioResult（演示脚本用） */
-  forceScenario?: ScenarioId | null;
 }): DetectionResult {
   return buildScenarioResult({
     taskId: input.taskId,
     fileName: input.fileName,
     duration: input.duration ?? 213,
     detectType: input.detectType as Task["detectType"],
-    forceScenario: input.forceScenario ?? null,
   });
 }

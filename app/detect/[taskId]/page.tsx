@@ -2,13 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { ArrowUpRight, AudioLines, FileText, RadioTower } from "lucide-react";
 
 import { AIProbabilityCard } from "@/components/detect/ai-probability-card";
 import { AudioWaveform } from "@/components/detect/audio-waveform";
-import { DemoResetButton } from "@/components/detect/demo-reset-button";
-import { DemoScriptCardView } from "@/components/detect/demo-script-card";
 import { DetectionProgress } from "@/components/detect/detection-progress";
 import { MatchedSegments } from "@/components/detect/matched-segments";
 import { ReportButton } from "@/components/detect/report-button";
@@ -19,23 +17,24 @@ import { DetectShell } from "@/components/layout/detect-shell";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "@/components/ui/use-toast";
 import { useDetectionSimulation } from "@/hooks/use-detection-simulation";
-import {
-  getDemoCard,
-  getDemoScenario,
-  getDetectCount,
-  resetDetectCount,
-} from "@/lib/demo-script";
-import { detectTypeLabel, mockTasks } from "@/lib/mock-data";
+import { mergeInferenceResult } from "@/lib/inference-merge";
+import { detectTypeLabel } from "@/lib/mock-data";
 import { buildTaskResult, resolveTask } from "@/lib/mock-service";
+import { getStashedFile } from "@/lib/pending-files";
 import type { DetectType, Task } from "@/lib/types";
-import { formatDateTime, formatDuration } from "@/lib/utils";
+import { cn, formatDateTime, formatDuration } from "@/lib/utils";
+
+/** 三态数据来源对应的徽章文案 */
+const SOURCE_LABEL: Record<string, { text: string; hint: string }> = {
+  model: { text: "模型实时判定", hint: "该结果由本地 CNN 模型实际推理得出" },
+  fallback: { text: "模型推理失败 · 已降级随机", hint: "模型请求超时或出错，已回落到随机结果" },
+  scenario: { text: "无原始音频 · 随机结果", hint: "没有可推理的音频（预设任务或刷新后文件已丢失）" },
+};
 
 function DetectResultContent() {
   const params = useParams<{ taskId: string }>();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const taskId = params.taskId;
 
   const task: Task = React.useMemo(() => {
@@ -49,76 +48,35 @@ function DetectResultContent() {
     };
   }, [taskId, searchParams]);
 
+  const baseResult = React.useMemo(() => buildTaskResult(task), [task]);
+
   /**
-   * 演示计数：优先取 URL 上的 dc（上传页跳转时带上，刷新结果页不会丢）。
-   * 没有 dc 时，只有「非预设任务」才回落到 localStorage 计数 ——
-   * 否则点开任意一条预设任务都会被演示脚本带偏。
+   * 原始音频只在浏览器内存里（lib/pending-files.ts 按 taskId 暂存），
+   * 所以必须在 effect 里读，保证服务端渲染阶段不会拿到 / 也不会用到它。
+   * 为空时（预设任务、刷新后丢失、换了浏览器）跳过推理，直接用种子随机结果。
    */
-  const isPresetTask = React.useMemo(
-    () => mockTasks.some((item) => item.id === taskId),
-    [taskId]
-  );
-  const dcFromUrl = Number.parseInt(searchParams.get("dc") ?? "", 10);
-  const [fallbackCount, setFallbackCount] = React.useState(0);
+  const [file, setFile] = React.useState<File | null>(null);
   React.useEffect(() => {
-    if (Number.isFinite(dcFromUrl)) return;
-    setFallbackCount(getDetectCount());
-  }, [dcFromUrl]);
+    setFile(getStashedFile(taskId));
+  }, [taskId]);
 
-  const demoCount =
-    Number.isFinite(dcFromUrl) && dcFromUrl > 0
-      ? dcFromUrl
-      : isPresetTask
-        ? 0
-        : fallbackCount;
+  const { progress, phase, phaseIndex, isFinished, started, metrics, live, source } =
+    useDetectionSimulation(task, baseResult, { file });
 
-  // 演示脚本：第 1/2 次钉死场景，第 3 次起返回 null 走种子随机
-  const forceScenario = demoCount > 0 ? getDemoScenario(demoCount) : null;
-  const demoCard = demoCount > 0 ? getDemoCard(demoCount) : null;
-
-  /** ?reset=1 -> 重置计数后用 replace 抹掉参数，避免刷新又重置一次 */
-  React.useEffect(() => {
-    if (searchParams.get("reset") !== "1") return;
-    resetDetectCount();
-    setFallbackCount(0);
-    toast({
-      title: "演示计数已重置",
-      description: "下一次上传将重新从第 1 次（原创作品）开始演示",
-      variant: "success",
-    });
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete("reset");
-    const query = next.toString();
-    router.replace(query ? `/detect/${taskId}?${query}` : `/detect/${taskId}`);
-  }, [searchParams, router, taskId]);
-
-  const baseResult = React.useMemo(
-    () => buildTaskResult(task, forceScenario),
-    [task, forceScenario]
+  // 真实推理优先；没有就回落到场景化随机，并保证数值与结论文案互相自洽
+  const result = React.useMemo(
+    () =>
+      mergeInferenceResult(baseResult, live, metrics, {
+        taskId: task.id,
+        duration: baseResult.audioDuration,
+      }),
+    [baseResult, live, metrics, task.id]
   );
-  const { progress, phase, phaseIndex, isFinished, started, metrics } = useDetectionSimulation(
-    task,
-    baseResult,
-    forceScenario
-  );
-
-  // 用当次场景化随机结果覆盖三个核心指标，保证「看到什么就存什么」
-  const result = React.useMemo(() => {
-    if (!metrics) return baseResult;
-    return {
-      ...baseResult,
-      aiProbability: metrics.aiProbability,
-      similarity: metrics.similarity,
-      matchedSegments: metrics.matchedSegments,
-      riskLevel: metrics.riskLevel,
-    };
-  }, [baseResult, metrics]);
 
   return (
     <DetectShell
       maxWidth="max-w-[880px]"
       subtitle={`任务编号 ${task.id} · 结果由「AI 鉴别 + 指纹比对 + 旋律特征提取」三段链路综合判定`}
-      footerExtra={<DemoResetButton />}
     >
       <div className="space-y-4">
         {/* 任务概览 */}
@@ -139,14 +97,27 @@ function DetectResultContent() {
                 <span>{detectTypeLabel[task.detectType]}</span>
                 <span>时长 {formatDuration(result.audioDuration)}</span>
                 <span>提交于 {formatDateTime(new Date(task.createdAt))}</span>
+                {isFinished ? (
+                  <span
+                    className={cn(
+                      "rounded border px-1.5 py-0.5 text-[10px] leading-none",
+                      source === "model"
+                        ? "border-primary/30 bg-primary/[0.08] text-primary"
+                        : "border-border text-muted-foreground/80"
+                    )}
+                    title={SOURCE_LABEL[source]?.hint}
+                  >
+                    {SOURCE_LABEL[source]?.text ?? source}
+                  </span>
+                ) : null}
               </div>
             </div>
-            <Link href="/detect/new" className="hidden shrink-0 sm:block">
+            <Link href="/detect/new" className="group hidden shrink-0 sm:block">
               <Badge
                 variant="outline"
                 className="cursor-pointer gap-1 border-primary/25 bg-primary/[0.06] px-2.5 py-1 font-normal text-primary"
               >
-                <ArrowUpRight className="h-3 w-3" />
+                <ArrowUpRight className="h-3 w-3 transition-transform duration-200 group-hover:scale-130" />
                 再检测一首
               </Badge>
             </Link>
@@ -173,10 +144,6 @@ function DetectResultContent() {
         {/* 结果区 */}
         {isFinished ? (
           <div className="space-y-4 animate-fade-up">
-            {demoCard ? (
-              <DemoScriptCardView card={demoCard} segments={result.matchedSegments} />
-            ) : null}
-
             <div className="grid gap-3 md:grid-cols-2">
               <AIProbabilityCard probability={result.aiProbability} animate />
               <SimilarityCard similarity={result.similarity} animate />

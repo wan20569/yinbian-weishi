@@ -9,9 +9,10 @@ import { DetectTypeSelector } from "@/components/detect/detect-type-selector";
 import { SelectedFileCard, UploadDropzone } from "@/components/detect/upload-dropzone";
 import { UploadProgress } from "@/components/detect/upload-progress";
 import { useUploadSimulation } from "@/hooks/use-upload-simulation";
-import { incrementDetectCount } from "@/lib/demo-script";
 import { detectTypeOptions } from "@/lib/mock-data";
 import { createTaskId, registerTask } from "@/lib/mock-service";
+import { stashFile } from "@/lib/pending-files";
+import { MOCK_NOW } from "@/lib/utils";
 import type { DetectType, Task } from "@/lib/types";
 
 export default function NewDetectionPage() {
@@ -22,26 +23,28 @@ export default function NewDetectionPage() {
   const busy = stage === "uploading" || stage === "finishing";
 
   const handleSelectFile = (selected: File) => {
-    start({ name: selected.name, size: selected.size }, (finished) => {
+    start({ name: selected.name, size: selected.size, file: selected }, (finished) => {
       const id = createTaskId();
-      // 演示计数：只在「上传完成、准备跳转结果页」这一刻 +1，
-      // 刷新结果页不会再经过这里，因此不会重复递增。
-      const demoCount = incrementDetectCount();
       const task: Task = {
         id,
         fileName: finished.name,
         fileSize: finished.size,
         duration: 213,
-        createdAt: new Date().toISOString(),
+        // 以 MOCK_NOW 为基准（+1s 保证排在最前），而不是真实 Date.now()：
+        // 保证「刚刚」这类相对时间在服务端与浏览器算出同一结果。
+        createdAt: new Date(MOCK_NOW + 1000).toISOString(),
         status: "queued",
         detectType,
         progress: 0,
       };
       registerTask(task);
-      // dc = demo count，结果页靠它判断是否走演示脚本；
-      // 6 条预设任务的 URL 不带 dc，永远保持种子随机。
+      // 原始 File 只在内存里按 taskId 暂存：路由跳转后组件卸载，
+      // File 靠 URL 带不过去，而 localStorage 存不了二进制。
+      stashFile(id, finished.file);
+
+      // 跳转结果页，带上文件名与检测类型（URL 里不再有演示相关参数）。
       router.push(
-        `/detect/${id}?type=${detectType}&name=${encodeURIComponent(finished.name)}&dc=${demoCount}`
+        `/detect/${id}?type=${detectType}&name=${encodeURIComponent(finished.name)}`
       );
     });
   };
