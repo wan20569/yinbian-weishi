@@ -33,12 +33,23 @@ export function useCountUp(target: number, active: boolean, duration = 800) {
 export function AIProbabilityCard({
   probability,
   animate = false,
+  peak,
+  windows,
 }: {
   probability: number;
   animate?: boolean;
+  /** 后端返回的逐窗概率峰值（0-100），只有真实推理时才有 */
+  peak?: number;
+  /** 后端返回的参与推理的窗口数 */
+  windows?: number;
 }) {
   const value = useCountUp(probability, animate);
   const shown = animate ? value : probability;
+
+  // 只在拿到真实字段时才渲染这两行，避免用「概率 ± 常数」凑出看似专业的子指标
+  const realRows = [
+    peak !== undefined ? { label: "峰值窗口", value: peak } : null,
+  ].filter((row): row is { label: string; value: number } => row !== null);
 
   const tone =
     probability >= 70
@@ -95,27 +106,31 @@ export function AIProbabilityCard({
             <span className={cn("text-[13px] font-medium", tone.text)}>{tone.label}</span>
           </div>
           <p className="text-[11px] leading-5 text-muted-foreground">
-            基于轻量 CNN 判别模型对梅尔频谱声学特征推理得出，置信区间 ±2.4%。
+            基于轻量 CNN 判别模型对梅尔频谱声学特征推理得出。
           </p>
-          <div className={cn("space-y-1.5 pt-1", tone.text)}>
-            {[
-              { label: "声码器伪影", value: Math.min(99, probability + 3.2) },
-              { label: "人声自然度", value: Math.max(2, 100 - probability - 1.1) },
-            ].map((row) => (
-              <div key={row.label}>
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                  <span>{row.label}</span>
-                  <span className="tabular-nums">{row.value.toFixed(1)}%</span>
+          {realRows.length > 0 ? (
+            <div className={cn("space-y-1.5 pt-1", tone.text)}>
+              {realRows.map((row) => (
+                <div key={row.label}>
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>{row.label}</span>
+                    <span className="tabular-nums">{row.value.toFixed(1)}%</span>
+                  </div>
+                  <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-full rounded-full bg-current opacity-80"
+                      style={{ width: `${row.value}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-secondary">
-                  <div
-                    className="h-full rounded-full bg-current opacity-80"
-                    style={{ width: `${row.value}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : null}
+          {windows !== undefined ? (
+            <p className="text-[10px] leading-4 text-muted-foreground/80">
+              本次共分析 {windows} 个 10 秒窗口
+            </p>
+          ) : null}
         </div>
       </div>
     </Card>

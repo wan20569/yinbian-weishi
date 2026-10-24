@@ -9,12 +9,34 @@ import { cn } from "@/lib/utils";
 export function SimilarityCard({
   similarity,
   animate = false,
+  available = true,
 }: {
   similarity: number;
   animate?: boolean;
+  /** false 表示后端没有做声纹比对，此时不显示数字，避免把「没测」误读成「不相似」 */
+  available?: boolean;
 }) {
-  const value = useCountUp(similarity, animate);
+  const value = useCountUp(available ? similarity : 0, animate && available);
   const shown = animate ? value : similarity;
+
+  if (!available) {
+    return (
+      <Card className="relative overflow-hidden p-5">
+        <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-warn/[0.06]" />
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <Fingerprint className="h-3.5 w-3.5 text-primary" />
+          抄袭相似度
+        </div>
+        <div className="mt-4 flex items-baseline gap-1.5">
+          <span className="text-[38px] font-medium leading-none text-muted-foreground">—</span>
+          <span className="ml-2 text-[12px] font-medium text-muted-foreground">未进行声纹比对</span>
+        </div>
+        <p className="mt-4 text-[11px] leading-5 text-muted-foreground">
+          当前模型仅输出 AI 生成概率，未接入音频指纹库，因此不产生相似度与命中片段。
+        </p>
+      </Card>
+    );
+  }
 
   const tone =
     similarity >= 70
@@ -46,20 +68,9 @@ export function SimilarityCard({
         />
       </div>
 
-      <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
-        {[
-          { label: "指纹比对", value: Math.min(100, similarity + 4.8) },
-          { label: "旋律特征", value: Math.max(1, similarity - 12.7) },
-          { label: "编曲特征", value: Math.max(1, similarity - 19.4) },
-        ].map((item) => (
-          <div key={item.label} className="rounded-lg border border-border bg-secondary/30 px-2 py-2.5">
-            <dt className="text-[10px] text-muted-foreground">{item.label}</dt>
-            <dd className="mt-1 text-[13px] tabular-nums text-foreground">
-              {item.value.toFixed(1)}%
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <p className="mt-4 text-[10px] leading-4 text-muted-foreground/80">
+        整体相似度由后端指纹比对接口返回，前端不做二次加工。
+      </p>
     </Card>
   );
 }

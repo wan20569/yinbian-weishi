@@ -63,20 +63,42 @@ function DetectResultContent() {
   const { progress, phase, phaseIndex, isFinished, started, metrics, live, source } =
     useDetectionSimulation(task, baseResult, { file });
 
-  // 真实推理优先；没有就回落到场景化随机，并保证数值与结论文案互相自洽
+  // 真实推理优先；没有就回落到种子随机。模型没给的字段一律不补值。
   const result = React.useMemo(
-    () =>
-      mergeInferenceResult(baseResult, live, metrics, {
-        taskId: task.id,
-        duration: baseResult.audioDuration,
-      }),
-    [baseResult, live, metrics, task.id]
+    () => mergeInferenceResult(baseResult, live, metrics),
+    [baseResult, live, metrics]
   );
+
+  /**
+   * 是否真的做了声纹比对：只有模型明确回报了 similarity 才算。
+   * 影响相似度卡、命中片段、证据链三处的文案与数值呈现。
+   */
+  const similarityAvailable = live ? live.similarityAvailable !== false : true;
+
+  /** 开发期对账：打印最终渲染所用的数值，可与 [Model API] 那条逐字段比 */
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === "production" || !isFinished) return;
+    console.info(
+      `[UI Render] 前端渲染结果: ${JSON.stringify({
+        source,
+        aiProbability: result.aiProbability,
+        similarity: result.similarity,
+        similarityAvailable,
+        matchedSegments: result.matchedSegments.length,
+        audioDuration: result.audioDuration,
+        riskLevel: result.riskLevel,
+      })}`
+    );
+  }, [isFinished, source, result, similarityAvailable]);
 
   return (
     <DetectShell
       maxWidth="max-w-[880px]"
-      subtitle={`任务编号 ${task.id} · 结果由「AI 鉴别 + 指纹比对 + 旋律特征提取」三段链路综合判定`}
+      subtitle={
+        isFinished && !similarityAvailable
+          ? `任务编号 ${task.id} · 本次结果由 AI 生成鉴别输出，未进行指纹比对与旋律特征提取`
+          : `任务编号 ${task.id} · 结果由「AI 鉴别 + 指纹比对 + 旋律特征提取」三段链路综合判定`
+      }
     >
       <div className="space-y-4">
         {/* 任务概览 */}
@@ -145,8 +167,17 @@ function DetectResultContent() {
         {isFinished ? (
           <div className="space-y-4 animate-fade-up">
             <div className="grid gap-3 md:grid-cols-2">
-              <AIProbabilityCard probability={result.aiProbability} animate />
-              <SimilarityCard similarity={result.similarity} animate />
+              <AIProbabilityCard
+                probability={result.aiProbability}
+                animate
+                peak={live?.aiProbabilityPeak}
+                windows={live?.windows}
+              />
+              <SimilarityCard
+                similarity={result.similarity}
+                animate
+                available={similarityAvailable}
+              />
             </div>
 
             <div>
@@ -156,12 +187,17 @@ function DetectResultContent() {
                   匹配片段
                 </p>
                 <span className="text-[11px] text-muted-foreground">
-                  {result.matchedSegments.length > 0
-                    ? `${result.matchedSegments.length} 处命中 · 已在波形图高亮`
-                    : "无显著命中"}
+                  {!similarityAvailable
+                    ? "未进行指纹比对"
+                    : result.matchedSegments.length > 0
+                      ? `${result.matchedSegments.length} 处命中 · 已在波形图高亮`
+                      : "无显著命中"}
                 </span>
               </div>
-              <MatchedSegments segments={result.matchedSegments} />
+              <MatchedSegments
+                segments={result.matchedSegments}
+                available={similarityAvailable}
+              />
             </div>
 
             <ResultPanel result={result} duration={result.audioDuration} animate />

@@ -6,13 +6,31 @@ import { Badge } from "@/components/ui/badge";
 import type { MatchedSegment } from "@/lib/types";
 import { cn, formatClock } from "@/lib/utils";
 
-export function MatchedSegments({ segments }: { segments: MatchedSegment[] }) {
+export function MatchedSegments({
+  segments,
+  available = true,
+}: {
+  segments: MatchedSegment[];
+  /** false 表示本次没做指纹比对，空数组不代表「没有抄袭」，而是「没测」 */
+  available?: boolean;
+}) {
+  if (!available) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-card/40 px-5 py-8 text-center">
+        <p className="text-[13px] text-foreground">未进行指纹比对</p>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          当前模型只输出 AI 生成概率，未接入音频指纹库，因此不产生命中片段。
+        </p>
+      </div>
+    );
+  }
+
   if (segments.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-card/40 px-5 py-8 text-center">
         <p className="text-[13px] text-foreground">未检出匹配片段</p>
         <p className="mt-1.5 text-[11px] text-muted-foreground">
-          指纹库与旋律特征库均无显著命中，原创性良好。
+          指纹库与旋律特征库均无显著命中。
         </p>
       </div>
     );

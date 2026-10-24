@@ -93,7 +93,16 @@ curl -s http://localhost:3000/
 EPERM: operation not permitted, open '.next/trace'
 ```
 
-原因不是文件锁，也不是杀毒软件：`next.config.mjs` 顶层写了 `outputFileTracing: false`（Next 14 里这个选项已移到 `experimental`，顶层写属于无效配置），它让构建期的 trace 落盘路径失效。
+已排除的原因：
 
-**结论：不要加这个选项。** 移除后 `next build` 正常通过（5/5 页面静态生成）。如果哪天又出现同样的 EPERM，先检查 config 里有没有这一行，再去怀疑环境。
+- **不是配置**：`next.config.mjs` 里加过 `outputFileTracing: false`（无效的顶层写法，已移除），但**移除之后仍会复现**，两者无因果关系。
+- **不是文件锁 / 残留进程**：`.next` 全删、端口全部释放后依旧失败；用 Python 往同一路径写文件是成功的。
+- **不是 safe-delete 陷阱**：`CODEBUDDY_SAFE_DELETE_ENABLED=0` 也照样失败。
+- **不是项目路径问题**：换 `distDir` 到 `.next-prod` 仍然报同样的错。
+- **不是代码问题**：报错发生在编译开始之前，与本次改动无关。
+
+实际情况是**间歇性的**：同一个仓库、同一份代码，前几次构建可以通过，之后连续多次失败。落盘点在 Next 的 SWC 原生绑定里（`build/swc/index.js` 的 `initCustomTraceSubscriber`），属于环境侧行为。
+
+处理办法：删掉 `.next` 重试（有时第一次就过），或者换一台机器 / CI 跑构建。本地开发用 `npm run dev` 不受影响，`tsc --noEmit` 也不受影响。
+
 

@@ -1,23 +1,26 @@
 /**
- * 把「真实推理结果」与「演示数据」合成一份前后一致的 DetectionResult。
+ * 把模型返回值整理成页面要用的 DetectionResult。
  *
- * 要解决的问题：后端模型只输出 aiProbability，similarity 恒为 0、
- * matchedSegments 恒为空（它没有指纹库）。如果直接把真实值盖上去，
- * 就会出现「AI 93% + 相似度 0% + 无命中片段」这种看着像 bug 的页面；
- * 如果继续沿用原场景的相似度，又可能出现「AI 11% 却判定 AI 洗稿」的矛盾组合。
+ * 唯一原则：**不编数据**。
+ *   · aiProbability 以模型为准，不做任何修饰。
+ *   · 后端给了 similarity → 用真实值；没给 → 记 0，并把「未测量」这个事实
+ *     通过 similarityAvailable 一路传到 UI（卡片显示「未进行声纹比对」），
+ *     而不是找一个好看的数字填上。
+ *   · matchedSegments 同理：后端给空就是空。
+ *   · 结论、风险等级、证据链文案全部由「真实算出的数值 + 是否测量」推导，
+ *     没测的项目就明说没测。
  *
- * 规则：
- *  1. aiProbability 永远以模型为准。
- *  2. similarityAvailable 为 true → 用后端的真实相似度与片段。
- *  3. 否则按真实 AI 概率重新选一个「未检出抄袭」的同象限场景，
- *     只借用它的相似度数值，片段一律置空 —— 没做指纹比对就不编片段。
- *  4. 结论文案、风险等级、证据链分数全部由合并后的数值反推，
- *     保证页面上每个数字和每句话互相对得上。
+ * 只有「完全没有模型结果」（请求失败 / 没有原始音频）时，才回落到种子随机，
+ * 那时 UI 会挂上「已降级随机 / 随机结果」徽章，读者不会被误导。
  */
 
-import { generateRandomResult, SCENARIOS, type RandomResult } from "./random-result";
+import { SCENARIOS, type RandomResult } from "./random-result";
 import type { DetectionResult, EvidenceItem, RiskLevel } from "./types";
 import type { InferencePayload } from "./inference-client";
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -30,7 +33,30 @@ export function riskOf(aiProbability: number, similarity: number): RiskLevel {
   return "low";
 }
 
-function verdictFor(aiProbability: number, similarity: number): string {
+/**
+ * 结论文案。
+ * @param similarityMeasured false 表示后端没做声纹比对，此时结论只能谈 AI 生成
+ */
+function verdictFor(aiProbability: number, similarity: number, similarityMeasured: boolean): string {
+  if (!similarityMeasured) {
+    if (aiProbability >= 70) {
+      return (
+        `模型判定为高度疑似 AI 生成（${aiProbability.toFixed(1)}%）。` +
+        "本次仅完成 AI 生成鉴别，未进行声纹比对，抄袭相似度不参与判定。"
+      );
+    }
+    if (aiProbability >= 40) {
+      return (
+        `模型检出一定 AI 生成特征（${aiProbability.toFixed(1)}%），处于判定的中间区间，建议结合人工复核；` +
+        "本次未进行声纹比对。"
+      );
+    }
+    return (
+      `模型未检出显著 AI 生成特征（${aiProbability.toFixed(1)}%）。` +
+      "本次仅完成 AI 生成鉴别，未进行声纹比对。"
+    );
+  }
+
   if (aiProbability >= 70) {
     return similarity >= 70 ? SCENARIOS.ai_copy.verdict : SCENARIOS.ai_original.verdict;
   }
@@ -43,54 +69,60 @@ function verdictFor(aiProbability: number, similarity: number): string {
   );
 }
 
-function patchEvidence(
+function cnnConclusion(aiProbability: number): string {
+  if (aiProbability >= 70) return "判定为 AI 生成，置信度高";
+  if (aiProbability >= 40) return "检出 AI 生成特征，置信度中等";
+  return "判定为真人演唱/演奏";
+}
+
+/**
+ * 重写证据链：属于模型的写真实分数，不属于模型的明说没测。
+ */
+function buildEvidence(
   chain: EvidenceItem[],
   aiProbability: number,
   similarity: number,
   hitCount: number,
-  similarityAvailable: boolean
+  similarityMeasured: boolean
 ): EvidenceItem[] {
   return chain.map((item) => {
     if (item.key === "cnn") {
-      const conclusion =
-        aiProbability >= 70
-          ? "判定为 AI 生成，置信度高"
-          : aiProbability >= 40
-            ? "检出 AI 生成特征，置信度中等"
-            : "判定为真人演唱/演奏";
-      return { ...item, score: Number(aiProbability.toFixed(1)), conclusion };
+      return {
+        ...item,
+        score: round1(aiProbability),
+        conclusion: cnnConclusion(aiProbability),
+      };
     }
 
     if (item.key === "fingerprint") {
-      const conclusion = hitCount > 0
-        ? `命中 ${hitCount} 处相似片段，最高 ${similarity.toFixed(1)}%`
-        : similarityAvailable
-          ? "指纹库无显著命中"
-          : "指纹比对未接入，此处为演示数值";
-      return { ...item, score: Number(similarity.toFixed(1)), conclusion };
+      if (!similarityMeasured) {
+        return { ...item, score: 0, status: "pending", conclusion: "本次未进行声纹比对" };
+      }
+      return {
+        ...item,
+        score: round1(similarity),
+        conclusion:
+          hitCount > 0
+            ? `命中 ${hitCount} 处相似片段，最高 ${similarity.toFixed(1)}%`
+            : "指纹库无显著命中",
+      };
     }
 
+    // melody（旋律特征）：当前模型不提供，别假装算过
+    if (!similarityMeasured) {
+      return { ...item, score: 0, status: "pending", conclusion: "本次未进行旋律特征提取" };
+    }
     return item;
   });
 }
 
-export interface MergeContext {
-  taskId: string;
-  duration: number;
-}
-
-/**
- * @param base     原始结果（波形、报告号、时长等静态字段都从这里来）
- * @param live     真实推理结果，null 表示没跑成
- * @param scenario 场景化随机结果，作为降级兜底
- */
 export function mergeInferenceResult(
   base: DetectionResult,
   live: InferencePayload | null,
-  scenario: RandomResult | null,
-  ctx: MergeContext
+  scenario: RandomResult | null
 ): DetectionResult {
-  // ── 没有真实结果：完全沿用场景数据（演示模式 / 请求失败 / 预设任务）
+  // ── 没有模型结果：请求失败或没有原始音频，整体回落到种子随机
+  // 此时页面会显示「已降级随机 / 随机结果」徽章，数值只用于演示流程
   if (!live) {
     if (!scenario) return base;
     return {
@@ -99,8 +131,9 @@ export function mergeInferenceResult(
       similarity: scenario.similarity,
       matchedSegments: scenario.matchedSegments,
       riskLevel: scenario.riskLevel,
-      verdict: SCENARIOS[scenario.scenario].verdict,
-      evidenceChain: patchEvidence(
+      verdict:
+        `当前为随机结果（模型未参与判定）。参考结论：${SCENARIOS[scenario.scenario].verdict}`,
+      evidenceChain: buildEvidence(
         base.evidenceChain,
         scenario.aiProbability,
         scenario.similarity,
@@ -110,39 +143,27 @@ export function mergeInferenceResult(
     };
   }
 
-  // ── 有真实结果
-  const aiProbability = clamp(live.aiProbability, 0, 100);
-  const similarityAvailable = live.similarityAvailable !== false;
-
-  let similarity: number;
-  let matchedSegments = live.matchedSegments;
-
-  if (similarityAvailable) {
-    similarity = clamp(live.similarity, 0, 100);
-  } else {
-    // 借同象限、且「未检出抄袭」的场景取一个相似度数值；
-    // 用 taskId 做种子，保证同一任务刷新后数值不变。
-    const seedScenario = aiProbability >= 70 ? "ai_original" : "human_original";
-    const derived = generateRandomResult(ctx.taskId, ctx.duration, {
-      scenario: seedScenario,
-    });
-    similarity = derived.similarity;
-    matchedSegments = [];
-  }
+  // ── 有模型结果：只信模型给的字段
+  const aiProbability = clamp(round1(live.aiProbability), 0, 100);
+  const similarityMeasured = live.similarityAvailable !== false;
+  const similarity = similarityMeasured ? clamp(round1(live.similarity), 0, 100) : 0;
+  const matchedSegments = live.matchedSegments ?? [];
 
   return {
     ...base,
-    aiProbability: Number(aiProbability.toFixed(1)),
-    similarity: Number(similarity.toFixed(1)),
+    aiProbability,
+    similarity,
     matchedSegments,
+    // 时长也用后端解析出来的真实值，不再沿用上传页写死的占位时长
+    audioDuration: live.duration && live.duration > 0 ? live.duration : base.audioDuration,
     riskLevel: riskOf(aiProbability, similarity),
-    verdict: verdictFor(aiProbability, similarity),
-    evidenceChain: patchEvidence(
+    verdict: verdictFor(aiProbability, similarity, similarityMeasured),
+    evidenceChain: buildEvidence(
       base.evidenceChain,
       aiProbability,
       similarity,
       matchedSegments.length,
-      similarityAvailable
+      similarityMeasured
     ),
   };
 }
