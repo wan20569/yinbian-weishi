@@ -8,6 +8,7 @@ import { DetectShell } from "@/components/layout/detect-shell";
 import { DetectTypeSelector } from "@/components/detect/detect-type-selector";
 import { SelectedFileCard, UploadDropzone } from "@/components/detect/upload-dropzone";
 import { UploadProgress } from "@/components/detect/upload-progress";
+import { AuthGate } from "@/components/auth/auth-gate";
 import { useUploadSimulation } from "@/hooks/use-upload-simulation";
 import { detectTypeOptions } from "@/lib/mock-data";
 import { createTaskId, registerTask } from "@/lib/mock-service";
@@ -57,10 +58,11 @@ export default function NewDetectionPage() {
         : "正在上传并校验音频完整性（mock）";
 
   return (
-    <DetectShell
-      maxWidth="max-w-[720px]"
-      subtitle="上传待检测音频，平台将通过「轻量 CNN 鉴别 → 音频指纹比对 → 旋律特征提取」递进链路输出结果。"
-    >
+    <AuthGate>
+      <DetectShell
+        maxWidth="max-w-[720px]"
+        subtitle="上传待检测音频，平台将通过「轻量 CNN 鉴别 → 音频指纹比对 → 旋律特征提取」递进链路输出结果。"
+      >
       {!file ? (
         <>
           <UploadDropzone onSelectFile={handleSelectFile} />
@@ -107,6 +109,7 @@ export default function NewDetectionPage() {
           </div>
         </div>
       )}
-    </DetectShell>
+      </DetectShell>
+    </AuthGate>
   );
 }

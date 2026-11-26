@@ -1,4 +1,4 @@
-import { allMockTasks, buildFreshResult, mockTasks } from "@/lib/mock-data";
+import { buildFreshResult } from "@/lib/mock-data";
 import type { DetectionResult, DetectType, Task } from "@/lib/types";
 import { MOCK_NOW } from "@/lib/utils";
 
@@ -10,7 +10,6 @@ import { MOCK_NOW } from "@/lib/utils";
  * 因此 SSR 期间对本数组的任何写入（unshift / 赋值 / sort 原地排序）都会永久污染服务端状态：
  * 之后所有请求的预渲染 HTML 都带着被改写的 status/progress/result，
  * 而客户端 hydrate 时用的是干净的初始副本 → 必然 hydration mismatch。
- * （典型复现：先访问 /detect/tsk_20260930_002，再刷新首页，「检测中 58%」在服务端变成「已完成」。）
  *
  * 规则：
  *  1. 所有写操作（registerTask / updateTaskResult）必须先过 `typeof window === "undefined"` 守卫。
@@ -18,9 +17,11 @@ import { MOCK_NOW } from "@/lib/utils";
  *  3. listTasks() 一律返回浅拷贝，禁止把内部数组引用交出去被原地排序/修改。
  *  4. 结果必须是确定性可复现的（种子 PRNG），两端才能算出同样的值。
  *
- * 纯 mock：刷新页面即回落到 lib/mock-data.ts 的初始数据。
+ * 初始为空：原先这里用 allMockTasks 填入 8 条演示任务，
+ * 现已移除——工作台与检测中心只展示本次会话真实上传的任务，
+ * 空态由 EmptyState 承接。刷新页面后内存态清空，属于预期行为。
  */
-const inMemoryTasks: Task[] = [...allMockTasks];
+const inMemoryTasks: Task[] = [];
 
 /** 是否运行在浏览器（客户端）。服务端一律返回 false。 */
 function isBrowser() {
@@ -41,10 +42,6 @@ export function registerTask(task: Task) {
 export function listTasks(): Task[] {
   // 浅拷贝：调用方可以随意 sort / slice，不会写坏单例
   return [...inMemoryTasks];
-}
-
-export function listMainTasks(): Task[] {
-  return inMemoryTasks.filter((task) => mockTasks.some((item) => item.id === task.id));
 }
 
 export function getTaskById(id: string): Task | undefined {
@@ -87,11 +84,12 @@ export function buildTaskResult(task: Task): DetectionResult {
     detectType: task.detectType,
     duration: task.duration || 213,
   });
-  // 写回内存态（仅客户端生效），便于「结果页 -> 工作台」回看时保持一致。
-  // 服务端走到这里时 updateTaskResult 是 no-op：只计算不写回，两端算出的 fresh 完全一致。
-  if (isBrowser()) {
-    updateTaskResult(task.id, { result: fresh, status: "done", progress: 100 });
-  }
+  // ⚠️ 不再把「随机结果」写回内存态并标记为 done。
+  // 之前的写法会在结果页一打开（真实检测还没跑完）就把任务写成「已完成 + 随机结果」，
+  // 导致检测失败/进行中时，工作台与检测中心列表里仍显示一条带随机风险等级的「已完成」任务，
+  // 这是「随机数冒充真实检测结论」的最隐蔽泄漏点。
+  // 现在：真实结果由结果页在「模型成功返回」后显式写回（见 detect/[taskId]/page.tsx），
+  // 失败则标记为 failed；buildTaskResult 只负责返回渲染兜底结构，不碰任务状态。
   return fresh;
 }
 

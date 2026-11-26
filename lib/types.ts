@@ -28,6 +28,14 @@ export interface EvidenceItem {
   score: number;
 }
 
+/** 风格断裂点（仅真实推理产出，展示用，不参与判决） */
+export interface Breakpoint {
+  start: number;
+  end: number;
+  jump: number;
+  direction: "ai_to_human" | "human_to_ai";
+}
+
 export interface DetectionResult {
   /** AI 生成概率 0-100 */
   aiProbability: number;
@@ -44,6 +52,20 @@ export interface DetectionResult {
   /** 报告编号（前端伪造） */
   reportNo: string;
   createdAt: string;
+
+  /** 以下均为真实推理才有的字段；mock / 降级随机时不存在 */
+  /** 逐窗概率（单位 %），顺序对应滑窗顺序 */
+  windowProbabilities?: number[];
+  /** 逐窗概率峰值 0-100 */
+  aiProbabilityPeak?: number;
+  /** 参与推理的窗口数 */
+  windows?: number;
+  /** 风格断裂点 */
+  breakpoints?: Breakpoint[];
+  /** 模型名 */
+  model?: string;
+  /** P(AI) > 60% 的窗口个数；mock / 降级时不存在 */
+  strongWindowCount?: number;
 }
 
 export interface Task {

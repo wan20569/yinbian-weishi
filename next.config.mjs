@@ -26,6 +26,10 @@ const nextConfig = {
         source: "/api/infer",
         destination: `${origin}/api/detect`,
       },
+      {
+        source: "/api/health",
+        destination: `${origin}/api/health`,
+      },
     ];
   },
 };

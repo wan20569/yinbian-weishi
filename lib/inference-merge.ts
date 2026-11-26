@@ -10,8 +10,9 @@
  *   · 结论、风险等级、证据链文案全部由「真实算出的数值 + 是否测量」推导，
  *     没测的项目就明说没测。
  *
- * 只有「完全没有模型结果」（请求失败 / 没有原始音频）时，才回落到种子随机，
- * 那时 UI 会挂上「已降级随机 / 随机结果」徽章，读者不会被误导。
+ * 当「完全没有模型结果」（请求失败 / 没有原始音频）时，这里**绝不回填种子随机**：
+ * 失败 / 无音频由 use-detection-simulation 的 source 标记（failed / noFile），
+ * UI 层据此渲染「检测失败」错误态，绝不用随机数冒充检测结论。
  */
 
 import { SCENARIOS, type RandomResult } from "./random-result";
@@ -29,7 +30,7 @@ function clamp(value: number, min: number, max: number): number {
 export function riskOf(aiProbability: number, similarity: number): RiskLevel {
   const peak = Math.max(aiProbability, similarity);
   if (peak >= 70) return "high";
-  if (peak >= 35) return "medium";
+  if (peak >= 40) return "medium";
   return "low";
 }
 
@@ -119,30 +120,15 @@ function buildEvidence(
 export function mergeInferenceResult(
   base: DetectionResult,
   live: InferencePayload | null,
-  scenario: RandomResult | null
+  _scenario: RandomResult | null
 ): DetectionResult {
-  // ── 没有模型结果：请求失败或没有原始音频，整体回落到种子随机
-  // 此时页面会显示「已降级随机 / 随机结果」徽章，数值只用于演示流程
+  // ── 没有模型结果：请求失败或没有原始音频。
+  // 这里**不再回填种子随机数值**——随机数冒充检测结论是严重误导。
+  // 失败 / 无音频由 use-detection-simulation 的 source 标记（failed / noFile），
+  // UI 层据此渲染「检测失败」错误态，而不是展示 base 里那套随机底。
+  // 因此这里只原样返回 base，绝不把 scenario 的假数值灌进去。
   if (!live) {
-    if (!scenario) return base;
-    return {
-      ...base,
-      aiProbability: scenario.aiProbability,
-      similarity: scenario.similarity,
-      matchedSegments: scenario.matchedSegments,
-      riskLevel: scenario.riskLevel,
-      // 兜底分支不能沿用「指纹库无显著命中」这类结论 —— 那些检测根本没跑
-      verdict:
-        "当前为随机结果：模型未参与判定，也未进行声纹比对。" +
-        "此页仅供界面预览，请重新上传音频以获取真实检测结论。",
-      evidenceChain: buildEvidence(
-        base.evidenceChain,
-        scenario.aiProbability,
-        scenario.similarity,
-        scenario.matchedSegments.length,
-        false
-      ),
-    };
+    return base;
   }
 
   // ── 有模型结果：只信模型给的字段
@@ -158,8 +144,16 @@ export function mergeInferenceResult(
     matchedSegments,
     // 时长也用后端解析出来的真实值，不再沿用上传页写死的占位时长
     audioDuration: live.duration && live.duration > 0 ? live.duration : base.audioDuration,
-    riskLevel: riskOf(aiProbability, similarity),
+    // 风险等级：优先采用后端权威的 riskLevel，后端未给才用本地阈值兜底
+    riskLevel: live.riskLevel ?? riskOf(aiProbability, similarity),
     verdict: verdictFor(aiProbability, similarity, similarityMeasured),
+    // 真实推理才有的字段，逐窗概率 / 峰值 / 窗口数 / 断裂点 / 模型名原样透传
+    windowProbabilities: live.windowProbabilities,
+    aiProbabilityPeak: live.aiProbabilityPeak,
+    windows: live.windows,
+    breakpoints: live.breakpoints,
+    model: live.model,
+    strongWindowCount: live.strongWindowCount,
     evidenceChain: buildEvidence(
       base.evidenceChain,
       aiProbability,

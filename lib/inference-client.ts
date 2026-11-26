@@ -16,7 +16,7 @@
  *   · matchedSegments 不是数组 → 强制空数组
  */
 
-import type { MatchedSegment, RiskLevel } from "./types";
+import type { Breakpoint, MatchedSegment, RiskLevel } from "./types";
 
 export interface InferencePayload {
   aiProbability: number;
@@ -28,6 +28,12 @@ export interface InferencePayload {
   aiProbabilityPeak?: number;
   /** 参与推理的窗口数 */
   windows?: number;
+  /** 逐窗概率（单位 %），顺序对应滑窗顺序 */
+  windowProbabilities?: number[];
+  /** 风格断裂点 */
+  breakpoints?: Breakpoint[];
+  /** P(AI) > 60% 的窗口个数；仅展示，不参与判决 */
+  strongWindowCount?: number;
   riskLevel?: RiskLevel;
   duration?: number;
   segments?: number;
@@ -46,10 +52,31 @@ export class InferenceError extends Error {
 }
 
 const ENDPOINT = process.env.NEXT_PUBLIC_INFERENCE_URL || "/api/infer";
-/** 默认超时。导出给调用方做看门狗用（保证请求一定会落状态） */
-export const INFERENCE_TIMEOUT_MS = Number(
-  process.env.NEXT_PUBLIC_INFERENCE_TIMEOUT ?? 10_000
-);
+
+/**
+ * 默认超时 60s。
+ *
+ * 原来是 10s，只在 localhost 够用：本机推理是毫秒级，10s 基本等于「后端没起来」的判据。
+ * 走公网（Cloudflare 隧道 / 远程部署）时，这个预算要同时覆盖三段时间——
+ * 音频上传、服务端解码与分窗推理、结果回传，10s 正常就会被打穿，
+ * 表现为 InferenceError 超时并降级为随机结果。
+ *
+ * 为什么不是 120s：Cloudflare 代理对单次 HTTP 请求有 100s 的源站等待上限，
+ * 超过会直接返回 524。60s 留足了余量，又能保证超时错误来自我们自己而不是 CDN。
+ * 需要更长的部署环境可以用 NEXT_PUBLIC_INFERENCE_TIMEOUT 覆盖。
+ */
+const FALLBACK_TIMEOUT_MS = 60_000;
+
+/** 环境变量可能被写成非数字，退化成 NaN 会让 setTimeout 立即触发，这里兜回默认值 */
+function readTimeoutFromEnv(): number {
+  const raw = process.env.NEXT_PUBLIC_INFERENCE_TIMEOUT;
+  if (!raw) return FALLBACK_TIMEOUT_MS;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : FALLBACK_TIMEOUT_MS;
+}
+
+/** 导出给调用方做看门狗用（保证请求一定会落状态） */
+export const INFERENCE_TIMEOUT_MS = readTimeoutFromEnv();
 const DEFAULT_TIMEOUT_MS = INFERENCE_TIMEOUT_MS;
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -86,6 +113,38 @@ function toPercent(value: unknown, field: string): number {
 
 function optionalNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+/** 逐窗概率数组清洗：必须是数值数组，单位已是 %，逐项夹到 0-100 */
+function normalizeWindowProbabilities(raw: unknown): number[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const out: number[] = [];
+  for (const item of raw) {
+    if (typeof item !== "number" || !Number.isFinite(item)) return undefined;
+    out.push(clamp(round1(item), 0, 100));
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+/** 断裂点数组清洗：字段不全或区间非法的直接丢弃 */
+function normalizeBreakpoints(raw: unknown): Breakpoint[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Breakpoint[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const bp = item as Record<string, unknown>;
+    const start = optionalNumber(bp.start);
+    const end = optionalNumber(bp.end);
+    const jump = optionalNumber(bp.jump);
+    const direction =
+      bp.direction === "ai_to_human" || bp.direction === "human_to_ai"
+        ? bp.direction
+        : undefined;
+    if (start === undefined || end === undefined || jump === undefined || !direction) continue;
+    if (end <= start) continue;
+    out.push({ start, end, jump: round1(jump), direction });
+  }
+  return out;
 }
 
 /** 片段数组必须做严格清洗，避免后端字段缺失时把 undefined 塞进 UI */
@@ -144,6 +203,9 @@ export function normalizeInferencePayload(raw: unknown): InferencePayload {
     similarityAvailable,
     aiProbabilityPeak: peak === undefined ? undefined : clamp(round1(peak), 0, 100),
     windows: segments,
+    windowProbabilities: normalizeWindowProbabilities(data.windowProbabilities),
+    breakpoints: normalizeBreakpoints(data.breakpoints),
+    strongWindowCount: optionalNumber(data.strongWindowCount),
     riskLevel:
       data.riskLevel === "high" || data.riskLevel === "medium" || data.riskLevel === "low"
         ? data.riskLevel

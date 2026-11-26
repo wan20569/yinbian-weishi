@@ -1,5 +1,5 @@
 # AI 音乐检测 · 本地推理环境
-# 安装：.venv-infer\Scripts\pip install -r server\requirements.txt -i https://pypi.org/simple
+# 安装：D:\yinbian-venv\Scripts\pip install -r server\requirements.txt -i https://pypi.org/simple
 
 torch>=2.0          # 加载 .pt 权重 + 前向推理，CPU 版足够（模型仅 1.3MB）
 numpy>=1.24         # 必需：checkpoint 里的 mel_filters 是 numpy 数组，缺了无法反序列化

@@ -55,7 +55,7 @@ export function AIProbabilityCard({
     probability >= 70
       ? { text: "text-destructive", ring: "stroke-destructive", label: "高度疑似 AI 生成" }
       : probability >= 40
-        ? { text: "text-warn", ring: "stroke-warn", label: "疑似 AI 辅助生成" }
+        ? { text: "text-warn", ring: "stroke-warn", label: "存疑 · 需人工复核" }
         : { text: "text-primary", ring: "stroke-primary", label: "未检出 AI 特征" };
 
   const circumference = 2 * Math.PI * 52;
@@ -65,7 +65,7 @@ export function AIProbabilityCard({
       <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-destructive/[0.06]" />
       <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
         <Sparkles className="h-3.5 w-3.5 text-primary" />
-        AI 生成概率
+        窗口概率均值
       </div>
 
       <div className="mt-4 flex items-center gap-5">

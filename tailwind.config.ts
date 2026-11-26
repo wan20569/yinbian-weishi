@@ -1,7 +1,9 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: ["class"],
+  // 主题由 next-themes 写入 <html data-theme="...">，
+  // 因此 dark: 变体跟随属性选择器而不是 .dark 类。
+  darkMode: ["selector", '[data-theme="dark"]'],
   content: [
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
@@ -60,17 +62,29 @@ const config: Config = {
           foreground: "hsl(var(--card-foreground))",
         },
         brand: {
-          DEFAULT: "#2DD4BF",
-          soft: "rgba(45, 212, 191, 0.12)",
+          DEFAULT: "hsl(var(--brand))",
+          soft: "hsl(var(--brand) / 0.12)",
         },
         danger: {
-          DEFAULT: "#EF4444",
-          soft: "rgba(239, 68, 68, 0.12)",
+          DEFAULT: "hsl(var(--destructive))",
+          soft: "hsl(var(--destructive) / 0.12)",
         },
         warn: {
-          DEFAULT: "#F59E0B",
-          soft: "rgba(245, 158, 11, 0.12)",
+          DEFAULT: "hsl(var(--warn))",
+          soft: "hsl(var(--warn) / 0.12)",
         },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          soft: "hsl(var(--info) / 0.12)",
+        },
+        /* 以下三个用于吸收原先散落在组件里的硬编码色值，
+           换肤时它们会跟着 data-theme 一起变。 */
+        sidebar: "hsl(var(--sidebar))",
+        waveform: {
+          DEFAULT: "hsl(var(--waveform))",
+          bar: "hsl(var(--waveform-bar))",
+        },
+        scrollbar: "hsl(var(--scrollbar-thumb))",
       },
       borderRadius: {
         lg: "12px",

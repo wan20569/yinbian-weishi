@@ -2,9 +2,9 @@
 
 用法（在项目根目录 D:/AI音乐 下）：
 
-    .venv-infer\\Scripts\\python.exe server\\infer.py "D:\\some\\song.mp3"
-    .venv-infer\\Scripts\\python.exe server\\infer.py "D:\\some\\folder" --self-check
-    .venv-infer\\Scripts\\python.exe server\\infer.py "a.mp3" "b.mp3" "D:\\music"
+    D:\\yinbian-venv\\Scripts\\python.exe server\\infer.py "D:\\some\\song.mp3"
+    D:\\yinbian-venv\\Scripts\\python.exe server\\infer.py "D:\\some\\folder" --self-check
+    D:\\yinbian-venv\\Scripts\\python.exe server\\infer.py "a.mp3" "b.mp3" "D:\\music"
 
 在 PyCharm 里也可以直接右键 Run，参数据填要检测的文件或目录路径。
 """
@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from audio import load_audio, mel_spectrogram, normalize, split_chunks, to_logmel  # noqa: E402
 from model import load_model  # noqa: E402
+from risk import risk_of  # noqa: E402
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _LOCAL_CKPT = os.path.join(_HERE, "weights", "ai_music_cnn.pt")
@@ -54,16 +55,75 @@ def predict_file(path: str, model, cfg: dict, mel_filters: np.ndarray, mel_mode:
         logits = model(torch.from_numpy(chunks)).squeeze(1)
         probs = torch.sigmoid(logits).cpu().numpy()
 
+    window_probs = [round(float(p) * 100, 1) for p in probs]
+
+    # 强证据窗口计数：P(AI) 严格大于 0.60 的窗口个数。
+    # 必须用未舍入的原始 probs（sigmoid 之后的 numpy 数组）计算，不能用 window_probs：
+    # 后者已 round(...,1)，原始 0.5996 与 0.6004 都会变成 60.0，计数会与真值对不上。
+    # 只返回计数，占比由前端用 count / segments 现算，避免冗余浮点。
+    strong_window_count = int((probs > 0.60).sum())
+
     return {
         "path": path,
         "duration": round(duration, 2),
         "chunks": int(chunks.shape[0]),
         "ai_probability": round(float(probs.mean()) * 100, 1),
         "ai_probability_max": round(float(probs.max()) * 100, 1),
-        "window_probs": [round(float(p) * 100, 1) for p in probs],
+        "strong_window_count": strong_window_count,
+        "window_probs": window_probs,
+        "breakpoints": _detect_breakpoints(window_probs, float(cfg["chunk_sec"]), float(cfg["hop_sec"])),
         "mel_mean": round(float(logmel.mean()), 3),
         "mel_std": round(float(logmel.std()), 3),
     }
+
+
+def _detect_breakpoints(
+    window_probs: list[float],
+    chunk_sec: float,
+    hop_sec: float,
+) -> list[dict]:
+    """检测相邻窗口间确信判决的跳变（风格断裂点）。
+
+    只报告「两侧都确信」的跳变：
+      * jump = |P[i+1] - P[i]| >= 50（百分点）
+      * 且一侧 > 70、另一侧 < 30（渐变不算断裂）
+    断裂区间取两窗的重叠段 [start_{i+1}, start_i + chunk_sec]。
+    按 jump 降序最多报告 2 个；不满足返回空数组。
+
+    本函数只做展示性定位，不参与 ai_probability 的判决（判决只用均值）。
+    """
+    if len(window_probs) < 2:
+        return []
+
+    found: list[dict] = []
+    for i in range(len(window_probs) - 1):
+        a = window_probs[i]
+        b = window_probs[i + 1]
+        jump = abs(b - a)
+        if jump < 50:
+            continue
+        # 两侧都必须是确信判决
+        high_side = a > 70 or b > 70
+        low_side = a < 30 or b < 30
+        if not (high_side and low_side):
+            continue
+
+        direction = "ai_to_human" if a > b else "human_to_ai"
+        # 窗 i 占 [i*hop, i*hop + chunk]，窗 i+1 占 [(i+1)*hop, (i+1)*hop + chunk]
+        # 两者重叠段 = [(i+1)*hop, i*hop + chunk]
+        start = (i + 1) * hop_sec
+        end = i * hop_sec + chunk_sec
+        found.append(
+            {
+                "start": round(start, 1),
+                "end": round(end, 1),
+                "jump": round(jump, 2),
+                "direction": direction,
+            }
+        )
+
+    found.sort(key=lambda x: -x["jump"])
+    return found[:2]
 
 
 def iter_files(targets: list[str]) -> list[str]:
@@ -131,7 +191,8 @@ def main() -> None:
             print(f"{os.path.basename(path)[:32]:<34}  失败：{type(exc).__name__}: {exc}")
             continue
         cost = (time.perf_counter() - t0) * 1000
-        label = "AI 生成" if r["ai_probability"] >= 50 else "真人创作"
+        level = risk_of(r["ai_probability"])
+        label = {"high": "AI 生成", "medium": "存疑 · 需人工复核", "low": "真人创作"}[level]
         print(
             f"{os.path.basename(path)[:32]:<34}{r['duration']:>6.1f}s{r['chunks']:>5}"
             f"{r['ai_probability']:>8.1f}%{r['ai_probability_max']:>7.1f}%  {label}  ({cost:.0f}ms)"

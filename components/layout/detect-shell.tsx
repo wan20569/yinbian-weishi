@@ -22,7 +22,7 @@ export function DetectShell({
 }) {
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[320px] bg-[radial-gradient(60%_100%_at_50%_0%,rgba(45,212,191,0.07),transparent)]" />
+      <div className="hero-glow pointer-events-none absolute inset-x-0 top-0 h-[320px]" />
 
       <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur">
         <div className={cn("mx-auto flex h-16 w-full items-center justify-between px-6", maxWidth)}>

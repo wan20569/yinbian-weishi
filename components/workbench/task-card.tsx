@@ -24,10 +24,13 @@ export function TaskCard({ task, selected = false, onSelect }: TaskCardProps) {
       type="button"
       onClick={() => onSelect(task)}
       className={cn(
-        "group w-full rounded-xl border bg-card p-4 text-left transition-all duration-200",
+        // 缩放放在最外层：整卡等比放大，内部元素（含状态徽章）相对位置不变，
+        // 因此「已完成 / 检测中」永远不会被推出卡片边界。
+        "group relative w-full rounded-2xl border p-4 text-left backdrop-blur-xl transition-all duration-200",
+        "bg-card/55 hover:z-10 hover:scale-[1.02]",
         selected
-          ? "border-primary/55 shadow-[0_0_0_1px_rgba(45,212,191,0.25)]"
-          : "border-border hover:border-primary/40 hover:bg-card/90"
+          ? "border-primary/55 bg-primary/[0.05] ring-1 ring-primary/25"
+          : "border-border/70 hover:border-primary/40 hover:bg-card/70"
       )}
     >
       <div className="flex items-start gap-3">
@@ -42,7 +45,7 @@ export function TaskCard({ task, selected = false, onSelect }: TaskCardProps) {
           <AudioLines className="h-4 w-4 transition-transform duration-200 group-hover:scale-130" />
         </span>
 
-        <div className="min-w-0 flex-1 origin-left transition-transform duration-200 group-hover:scale-110 group-active:scale-110">
+        <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <p className="truncate text-[13px] font-medium text-foreground">{task.fileName}</p>
             <StatusBadge status={task.status} />
@@ -72,7 +75,7 @@ export function TaskCard({ task, selected = false, onSelect }: TaskCardProps) {
 
       {failed ? (
         <p className="mt-3 rounded-lg border border-destructive/25 bg-destructive/5 px-2.5 py-2 text-[11px] leading-5 text-destructive">
-          音频文件损坏或格式不支持，请重新上传（支持 MP3 / WAV / FLAC，≤ 50MB）
+          检测未完成，未获得有效结果。可重新上传后再试。
         </p>
       ) : null}
 

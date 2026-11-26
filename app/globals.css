@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * ─────────────────────────────────────────────────────────────
+ *  主题系统
+ * ─────────────────────────────────────────────────────────────
+ *  由 next-themes 在 <html data-theme="..."> 上切换，四套主题：
+ *    dark  → 曜石青（默认，原有配色）
+ *    blue  → 深蓝科技
+ *    black → 极客极暗
+ *    light → 明亮白昼
+ *
+ *  规则：组件里只允许用语义化变量（bg-background / text-foreground /
+ *  bg-card / text-primary ...），禁止再写死 #0D1219 这类具体色值，
+ *  否则换肤时会出现「局部不跟随」的割裂。
+ *  新增变量（sidebar / waveform / scrollbar / noise）专门用于吸收
+ *  原先散落在组件里的硬编码颜色。
+ * ─────────────────────────────────────────────────────────────
+ */
+
 @layer base {
   :root {
     --background: 220 35% 7%;
@@ -29,12 +47,196 @@
     --destructive-foreground: 0 0% 100%;
 
     --warn: 38 92% 50%;
+    --info: 210 92% 60%;
 
     --border: 220 18% 20%;
     --input: 220 18% 20%;
     --ring: 173 66% 50%;
 
+    /* 品牌色（tailwind 的 brand / danger / warn 都指向变量） */
+    --brand: 173 66% 50%;
+
+    /* 结构性色板：侧栏与详情面板、波形、滚动条、噪点 */
+    --sidebar: 215 32% 8%;
+    --waveform: 216 28% 9%;
+    --waveform-bar: 214 17% 27%;
+    --scrollbar-thumb: 220 18% 20%;
+    --noise: 0 0% 100%;
+    --noise-alpha: 0.035;
+
     --radius: 0.75rem;
+  }
+
+  /* 曜石青：显式声明一份，保证 data-theme="dark" 时与 :root 完全一致 */
+  [data-theme="dark"] {
+    --background: 220 35% 7%;
+    --foreground: 220 20% 93%;
+
+    --card: 215 21% 11%;
+    --card-foreground: 220 20% 93%;
+
+    --popover: 215 21% 11%;
+    --popover-foreground: 220 20% 93%;
+
+    --primary: 173 66% 50%;
+    --primary-foreground: 173 80% 8%;
+
+    --secondary: 217 17% 14%;
+    --secondary-foreground: 220 20% 93%;
+
+    --muted: 217 17% 14%;
+    --muted-foreground: 219 14% 60%;
+
+    --accent: 220 15% 16%;
+    --accent-foreground: 220 20% 93%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warn: 38 92% 50%;
+    --info: 210 92% 60%;
+
+    --border: 220 18% 20%;
+    --input: 220 18% 20%;
+    --ring: 173 66% 50%;
+
+    --brand: 173 66% 50%;
+
+    --sidebar: 215 32% 8%;
+    --waveform: 216 28% 9%;
+    --waveform-bar: 214 17% 27%;
+    --scrollbar-thumb: 220 18% 20%;
+    --noise: 0 0% 100%;
+    --noise-alpha: 0.035;
+  }
+
+  /* 深蓝科技：背景更深更蓝，主色换成高饱和科技蓝 */
+  [data-theme="blue"] {
+    --background: 222 47% 7%;
+    --foreground: 213 25% 94%;
+
+    --card: 222 40% 11%;
+    --card-foreground: 213 25% 94%;
+
+    --popover: 222 40% 11%;
+    --popover-foreground: 213 25% 94%;
+
+    --primary: 212 95% 61%;
+    --primary-foreground: 222 60% 8%;
+
+    --secondary: 222 32% 15%;
+    --secondary-foreground: 213 25% 94%;
+
+    --muted: 222 32% 15%;
+    --muted-foreground: 218 20% 64%;
+
+    --accent: 222 28% 18%;
+    --accent-foreground: 213 25% 94%;
+
+    --destructive: 0 80% 62%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warn: 38 92% 55%;
+    --info: 206 95% 66%;
+
+    --border: 222 30% 22%;
+    --input: 222 30% 22%;
+    --ring: 212 95% 61%;
+
+    --brand: 212 95% 61%;
+
+    --sidebar: 222 50% 5%;
+    --waveform: 222 38% 10%;
+    --waveform-bar: 220 22% 32%;
+    --scrollbar-thumb: 222 26% 26%;
+    --noise: 0 0% 100%;
+    --noise-alpha: 0.04;
+  }
+
+  /* 极客极暗：纯黑底 + 荧光绿，高对比 */
+  [data-theme="black"] {
+    --background: 0 0% 3%;
+    --foreground: 0 0% 95%;
+
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 152 76% 48%;
+    --primary-foreground: 0 0% 4%;
+
+    --secondary: 0 0% 11%;
+    --secondary-foreground: 0 0% 95%;
+
+    --muted: 0 0% 11%;
+    --muted-foreground: 0 0% 56%;
+
+    --accent: 0 0% 14%;
+    --accent-foreground: 0 0% 95%;
+
+    --destructive: 0 84% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warn: 42 96% 52%;
+    --info: 199 95% 62%;
+
+    --border: 0 0% 17%;
+    --input: 0 0% 17%;
+    --ring: 152 76% 48%;
+
+    --brand: 152 76% 48%;
+
+    --sidebar: 0 0% 0%;
+    --waveform: 0 0% 6%;
+    --waveform-bar: 0 0% 26%;
+    --scrollbar-thumb: 0 0% 20%;
+    --noise: 0 0% 100%;
+    --noise-alpha: 0.05;
+  }
+
+  /* 明亮白昼：浅色底 + 深青主色，文字与边框整体反转 */
+  [data-theme="light"] {
+    --background: 210 25% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 173 80% 30%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 25% 95%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 25% 95%;
+    --muted-foreground: 215 20% 38%;
+
+    --accent: 210 25% 92%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warn: 32 95% 42%;
+    --info: 212 88% 44%;
+
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 173 80% 30%;
+
+    --brand: 173 80% 30%;
+
+    --sidebar: 210 24% 97%;
+    --waveform: 210 25% 96%;
+    --waveform-bar: 214 16% 78%;
+    --scrollbar-thumb: 214 16% 76%;
+    --noise: 222 47% 11%;
+    --noise-alpha: 0.04;
   }
 
   * {
@@ -53,7 +255,7 @@
   }
 
   ::selection {
-    background-color: rgba(45, 212, 191, 0.28);
+    background-color: hsl(var(--primary) / 0.28);
   }
 }
 
@@ -64,6 +266,15 @@
 
   .surface-hover {
     @apply transition-colors duration-200 hover:border-primary/45;
+  }
+
+  /* 检测页顶部的品牌光晕，跟随主题主色 */
+  .hero-glow {
+    background-image: radial-gradient(
+      60% 100% at 50% 0%,
+      hsl(var(--primary) / 0.07),
+      transparent
+    );
   }
 
   .no-scrollbar::-webkit-scrollbar {
@@ -77,7 +288,7 @@
   }
 
   .thin-scrollbar::-webkit-scrollbar-thumb {
-    background-color: #2a303c;
+    background-color: hsl(var(--scrollbar-thumb));
     border-radius: 999px;
   }
 
@@ -88,9 +299,293 @@
   .grid-noise {
     background-image: radial-gradient(
       circle at 1px 1px,
-      rgba(255, 255, 255, 0.035) 1px,
+      hsl(var(--noise) / var(--noise-alpha)) 1px,
       transparent 0
     );
     background-size: 22px 22px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ *  工作台视觉令牌（音鉴 AI 深色检测台）
+ * ───────────────────────────────────────────────────────────────
+ *  这一层只做两件事：
+ *   1. 补充新设计需要的令牌（面板透明度、网格线、光晕、三段渐变）；
+ *   2. 把四套主题的基础色统一到「蓝黑底 + 青→蓝→紫」的语言里。
+ *  使用规则与上文一致：组件里不得出现 #050a16 这类硬编码色，
+ *  面板一律用 .panel / .panel-interactive，渐变一律用 .grad-*。
+ * ═══════════════════════════════════════════════════════════════ */
+:root,
+[data-theme="dark"] {
+  --background: 222 62% 5%;
+  --foreground: 214 26% 92%;
+
+  --card: 220 46% 8%;
+  --card-foreground: 214 26% 92%;
+  --popover: 220 44% 9%;
+  --popover-foreground: 214 26% 92%;
+
+  --secondary: 220 36% 12%;
+  --secondary-foreground: 214 26% 92%;
+  --muted: 220 34% 12%;
+  --muted-foreground: 217 16% 62%;
+  --accent: 220 32% 15%;
+  --accent-foreground: 214 26% 92%;
+
+  --primary: 189 92% 55%;
+  --primary-foreground: 200 80% 8%;
+  --ring: 189 92% 55%;
+  --brand: 189 92% 55%;
+
+  --border: 220 30% 20%;
+  --input: 220 30% 20%;
+  --sidebar: 221 60% 4%;
+  --waveform: 220 52% 6%;
+  --waveform-bar: 218 24% 30%;
+  --scrollbar-thumb: 220 26% 24%;
+
+  /* 面板：半透明毛玻璃 + 顶部斜向高光 */
+  --panel-bg: 220 45% 9%;
+  --panel-alpha: 0.55;
+  --panel-border: 0.09;
+  --panel-sheen: 0.05;
+
+  /* 背景网格与三团光晕 */
+  --grid-line: 231 100% 70%;
+  --grid-alpha: 0.055;
+  --glow-a: 189 94% 45%;
+  --glow-b: 258 90% 66%;
+  --glow-c: 217 91% 60%;
+  --glow-alpha: 0.2;
+
+  /* 主渐变：标题文字 / 按钮 / 进度条共用 */
+  --grad-from: 187 92% 60%;
+  --grad-via: 217 91% 66%;
+  --grad-to: 258 90% 72%;
+  --grad-ink: 200 80% 8%;
+}
+
+/* 深蓝科技：更深的蓝底，主色偏科技蓝 */
+[data-theme="blue"] {
+  --background: 222 58% 6%;
+  --foreground: 213 25% 94%;
+
+  --card: 222 46% 9%;
+  --card-foreground: 213 25% 94%;
+  --popover: 222 44% 10%;
+  --popover-foreground: 213 25% 94%;
+
+  --secondary: 222 34% 13%;
+  --secondary-foreground: 213 25% 94%;
+  --muted: 222 34% 13%;
+  --muted-foreground: 218 20% 64%;
+  --accent: 222 30% 16%;
+  --accent-foreground: 213 25% 94%;
+
+  --primary: 212 95% 61%;
+  --primary-foreground: 222 60% 8%;
+  --ring: 212 95% 61%;
+  --brand: 212 95% 61%;
+
+  --border: 222 30% 22%;
+  --input: 222 30% 22%;
+  --sidebar: 222 58% 5%;
+  --waveform: 222 44% 8%;
+  --waveform-bar: 220 22% 32%;
+  --scrollbar-thumb: 222 26% 26%;
+
+  --panel-bg: 222 48% 10%;
+  --panel-alpha: 0.6;
+  --panel-border: 0.1;
+  --panel-sheen: 0.05;
+
+  --grid-line: 220 100% 72%;
+  --grid-alpha: 0.06;
+  --glow-a: 199 95% 52%;
+  --glow-b: 258 92% 68%;
+  --glow-c: 217 95% 62%;
+  --glow-alpha: 0.22;
+
+  --grad-from: 199 95% 60%;
+  --grad-via: 217 93% 66%;
+  --grad-to: 258 92% 74%;
+  --grad-ink: 222 60% 8%;
+}
+
+/* 极客极暗：纯黑底 + 荧光绿，渐变整体偏青绿 */
+[data-theme="black"] {
+  --background: 0 0% 3%;
+  --foreground: 0 0% 95%;
+
+  --card: 0 0% 7%;
+  --card-foreground: 0 0% 95%;
+  --popover: 0 0% 8%;
+  --popover-foreground: 0 0% 95%;
+
+  --secondary: 0 0% 11%;
+  --secondary-foreground: 0 0% 95%;
+  --muted: 0 0% 11%;
+  --muted-foreground: 0 0% 60%;
+  --accent: 0 0% 14%;
+  --accent-foreground: 0 0% 95%;
+
+  --primary: 152 76% 48%;
+  --primary-foreground: 0 0% 4%;
+  --ring: 152 76% 48%;
+  --brand: 152 76% 48%;
+
+  --border: 0 0% 18%;
+  --input: 0 0% 18%;
+  --sidebar: 0 0% 2%;
+  --waveform: 0 0% 6%;
+  --waveform-bar: 0 0% 28%;
+  --scrollbar-thumb: 0 0% 22%;
+
+  --panel-bg: 0 0% 8%;
+  --panel-alpha: 0.6;
+  --panel-border: 0.1;
+  --panel-sheen: 0.045;
+
+  --grid-line: 0 0% 100%;
+  --grid-alpha: 0.045;
+  --glow-a: 152 76% 42%;
+  --glow-b: 187 85% 52%;
+  --glow-c: 174 80% 42%;
+  --glow-alpha: 0.16;
+
+  --grad-from: 152 72% 54%;
+  --grad-via: 174 82% 56%;
+  --grad-to: 192 90% 62%;
+  --grad-ink: 0 0% 4%;
+}
+
+/* 明亮白昼：白底 + 深青主色，光晕与网格整体降噪 */
+[data-theme="light"] {
+  --background: 210 30% 98%;
+  --foreground: 222 47% 11%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
+  --secondary: 210 25% 95%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 25% 95%;
+  --muted-foreground: 215 20% 40%;
+  --accent: 210 25% 92%;
+  --accent-foreground: 222 47% 11%;
+
+  --primary: 192 88% 34%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 192 88% 34%;
+  --brand: 192 88% 34%;
+
+  --border: 214 22% 87%;
+  --input: 214 22% 87%;
+  --sidebar: 210 28% 97%;
+  --waveform: 210 30% 96%;
+  --waveform-bar: 214 16% 76%;
+  --scrollbar-thumb: 214 16% 76%;
+
+  --panel-bg: 0 0% 100%;
+  --panel-alpha: 0.82;
+  --panel-border: 0.9;
+  /* 高光颜色取自 foreground，浅色下必须压到极低，否则会变成一层灰罩 */
+  --panel-sheen: 0.035;
+
+  --grid-line: 222 60% 42%;
+  --grid-alpha: 0.045;
+  --glow-a: 190 85% 55%;
+  --glow-b: 258 80% 68%;
+  --glow-c: 217 88% 62%;
+  --glow-alpha: 0.1;
+
+  --grad-from: 190 88% 34%;
+  --grad-via: 217 88% 46%;
+  --grad-to: 258 70% 52%;
+  --grad-ink: 0 0% 100%;
+}
+
+@layer utilities {
+  /* 毛玻璃面板：新设计的卡片唯一入口 */
+  .panel {
+    border-radius: 1rem;
+    border: 1px solid hsl(var(--border) / var(--panel-border));
+    background-color: hsl(var(--panel-bg) / var(--panel-alpha));
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--foreground) / var(--panel-sheen)) 0%,
+      transparent 55%
+    );
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+
+  .panel-interactive {
+    transition:
+      border-color 0.2s ease,
+      background-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .panel-interactive:hover {
+    border-color: hsl(var(--primary) / 0.42);
+  }
+
+  /* 三段渐变：文字 / 填充 / 进度条 */
+  .grad-text {
+    background-image: linear-gradient(
+      90deg,
+      hsl(var(--grad-from)) 0%,
+      hsl(var(--grad-via)) 55%,
+      hsl(var(--grad-to)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .grad-bg {
+    background-image: linear-gradient(
+      100deg,
+      hsl(var(--grad-from)) 0%,
+      hsl(var(--grad-via)) 55%,
+      hsl(var(--grad-to)) 100%
+    );
+  }
+
+  .grad-bar {
+    background-image: linear-gradient(
+      90deg,
+      hsl(var(--grad-from)) 0%,
+      hsl(var(--grad-via)) 100%
+    );
+  }
+
+  /* 背景网格：44px 一格，颜色随主题 */
+  .grid-bg {
+    background-image: linear-gradient(
+        to right,
+        hsl(var(--grid-line) / var(--grid-alpha)) 1px,
+        transparent 1px
+      ),
+      linear-gradient(to bottom, hsl(var(--grid-line) / var(--grid-alpha)) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  /* 等宽数字：所有指标、时长、百分比统一用它，避免数字跳动 */
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, SFMono-Regular, Menlo, "JetBrains Mono", monospace;
+  }
+
+  /* 小标签：10px + 大字距，设计稿里反复出现的 “Workspace / 检测台” */
+  .eyebrow {
+    font-size: 10px;
+    line-height: 1.2;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
   }
 }

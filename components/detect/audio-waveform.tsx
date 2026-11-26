@@ -119,7 +119,7 @@ export function AudioWaveform({
   return (
     <div className={cn("select-none", className)}>
       <div
-        className="relative overflow-hidden rounded-xl border border-border bg-[#11161E]"
+        className="relative overflow-hidden rounded-xl border border-border bg-waveform"
         style={{ height: height + 44 }}
         onClick={handleSeek}
       >
@@ -149,7 +149,7 @@ export function AudioWaveform({
                   key={index}
                   className={cn(
                     "flex-1 rounded-full",
-                    currentTime / duration > index / peaks.length ? "bg-primary" : "bg-[#3A4351]"
+                    currentTime / duration > index / peaks.length ? "bg-primary" : "bg-waveform-bar"
                   )}
                   style={{ height: `${Math.max(6, peak * 100)}%` }}
                 />

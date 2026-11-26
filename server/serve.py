@@ -2,9 +2,9 @@
 
 启动（在项目根目录 D:/AI音乐 下）：
 
-    .venv-infer\\Scripts\\python.exe -m uvicorn server.serve:app --host 127.0.0.1 --port 8000
+    D:\\yinbian-venv\\Scripts\\python.exe -m uvicorn server.serve:app --host 127.0.0.1 --port 8000
     # 或者直接跑本文件（等价，带热重载开关）
-    .venv-infer\\Scripts\\python.exe server\\serve.py
+    D:\\yinbian-venv\\Scripts\\python.exe server\\serve.py
 
 接口：
     POST /api/detect   上传音频，返回 {aiProbability, similarity, matchedSegments, ...}
@@ -42,6 +42,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from infer import DEFAULT_CKPT, predict_file  # noqa: E402
 from model import load_model  # noqa: E402
+from risk import RISK_HIGH, RISK_MEDIUM, risk_of  # noqa: E402
 
 # ---------------- 配置 ----------------
 MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "50"))
@@ -60,9 +61,8 @@ CORS_ORIGINS = [
 
 ALLOWED_EXT = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac", ".mp4", ".aiff", ".aif"}
 
-# 风险分级阈值（与前端 RiskLevel 对齐）
-RISK_HIGH = 70.0
-RISK_MEDIUM = 40.0
+# 风险分级阈值（与前端 RiskLevel 对齐）：单一来源见 server/risk.py，经 602 首实测确定，
+# 由 `from risk import RISK_HIGH, RISK_MEDIUM, risk_of` 引入，勿在此重复定义。
 
 logging.basicConfig(
     level=logging.INFO,
@@ -136,6 +136,13 @@ class MatchedSegment(BaseModel):
     matchedAt: str | None = None
 
 
+class Breakpoint(BaseModel):
+    start: float
+    end: float
+    jump: float
+    direction: str
+
+
 class DetectResponse(BaseModel):
     aiProbability: float = Field(..., description="AI 生成概率 0-100")
     similarity: float = Field(..., description="抄袭相似度 0-100（本模型不产出，固定 0）")
@@ -146,10 +153,14 @@ class DetectResponse(BaseModel):
     )
     riskLevel: str = Field(..., description="low / medium / high")
     aiProbabilityPeak: float = Field(..., description="逐窗概率峰值 0-100")
+    strongWindowCount: int = Field(
+        0, description="P(AI) > 60% 的窗口个数。仅展示，不参与 riskLevel 计算。"
+    )
 
     duration: float = Field(..., description="音频时长（秒）")
     segments: int = Field(..., description="参与推理的窗口数")
     windowProbabilities: list[float] = Field(default_factory=list)
+    breakpoints: list[Breakpoint] = Field(default_factory=list)
 
     fileName: str | None = None
     model: str = ""
@@ -163,14 +174,6 @@ class HealthResponse(BaseModel):
     melMode: str
     maxUploadMB: int
     corsOrigins: list[str]
-
-
-def risk_of(probability: float) -> str:
-    if probability >= RISK_HIGH:
-        return "high"
-    if probability >= RISK_MEDIUM:
-        return "medium"
-    return "low"
 
 
 def save_upload(file: UploadFile) -> tuple[str, int]:
@@ -271,9 +274,11 @@ def detect(file: UploadFile = File(..., description="音频文件：mp3/wav/flac
         similarityAvailable=False,
         riskLevel=risk_of(probability),
         aiProbabilityPeak=float(result["ai_probability_max"]),
+        strongWindowCount=int(result.get("strong_window_count", 0)),
         duration=result["duration"],
         segments=int(result["chunks"]),
         windowProbabilities=[float(x) for x in result["window_probs"]],
+        breakpoints=result.get("breakpoints", []),
         fileName=file.filename,
         model=STATE.get("model_name", ""),
         elapsedMs=round(elapsed, 1),

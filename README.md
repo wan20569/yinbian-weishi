@@ -35,7 +35,7 @@ npm run build   # 生产构建
 
 ```bash
 # 终端 1：推理服务
-.venv-infer\Scripts\python.exe -m uvicorn server.serve:app --host 127.0.0.1 --port 8000
+D:\yinbian-venv\Scripts\python.exe -m uvicorn server.serve:app --host 127.0.0.1 --port 8000
 # 终端 2：前端
 npm run dev
 ```

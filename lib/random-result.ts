@@ -151,7 +151,7 @@ export function pickScenario(taskId?: string): ScenarioId {
 function riskOf(aiProbability: number, similarity: number): RiskLevel {
   const peak = Math.max(aiProbability, similarity);
   if (peak >= 70) return "high";
-  if (peak >= 35) return "medium";
+  if (peak >= 40) return "medium";
   return "low";
 }
 

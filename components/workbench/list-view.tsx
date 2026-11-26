@@ -14,13 +14,16 @@ export function ListView({
   tasks,
   selectedId,
   onSelect,
+  searchTerm = "",
 }: {
   tasks: Task[];
   selectedId: string | null;
   onSelect: (task: Task) => void;
+  /** 有搜索词时给「无匹配结果」，否则给「还没有任务」+ 上传引导 */
+  searchTerm?: string;
 }) {
   if (tasks.length === 0) {
-    return <EmptyState variant="search" />;
+    return <EmptyState variant={searchTerm ? "search" : "no-task"} />;
   }
 
   return (

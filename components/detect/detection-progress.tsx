@@ -10,6 +10,12 @@ export interface DetectionProgressProps {
   phase: DetectionPhase;
   phaseIndex: number;
   started: boolean;
+  /**
+   * 本地链路已跑完、只等模型返回。
+   * 公网环境下这一步可能要十几秒到几十秒，必须给用户一个「在等什么」的说法，
+   * 否则看起来就是页面卡死。
+   */
+  waiting?: boolean;
   className?: string;
 }
 
@@ -18,23 +24,34 @@ export function DetectionProgress({
   phase,
   phaseIndex,
   started,
+  waiting = false,
   className,
 }: DetectionProgressProps) {
+  const title = waiting ? "等待模型返回" : phase === "finished" ? "检测完成" : "检测进行中";
+
   return (
     <div className={cn("rounded-xl border border-border bg-card p-5", className)}>
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-medium text-foreground">
-          {phase === "finished" ? "检测完成" : "检测进行中"}
-        </span>
+        <span className="text-[13px] font-medium text-foreground">{title}</span>
         <span className="text-[12px] tabular-nums text-primary">{Math.round(progress)}%</span>
       </div>
 
       <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
         <div
-          className="h-full rounded-full bg-primary transition-[width] duration-200 ease-out"
+          className={cn(
+            "h-full rounded-full bg-primary transition-[width] duration-200 ease-out",
+            waiting && "animate-pulse"
+          )}
           style={{ width: `${progress}%` }}
         />
       </div>
+
+      {waiting ? (
+        <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-5 text-muted-foreground">
+          <Loader2 className="mt-0.5 h-3 w-3 shrink-0 animate-spin text-primary" />
+          本地解析已完成，正在等待推理服务返回结果。公网链路通常需要 10~30 秒，请不要关闭页面。
+        </p>
+      ) : null}
 
       <ol className="mt-5 grid gap-3 sm:grid-cols-4">
         {PHASES.map((item, index) => {

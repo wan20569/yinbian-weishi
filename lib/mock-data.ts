@@ -1,5 +1,16 @@
 import { SCENARIOS, generateRandomResult, hashSeed } from "./random-result";
+import { MOCK_NOW } from "./utils";
 import type { DetectionResult, DetectTypeOption, Task } from "./types";
+
+/**
+ * 说明：本文件原本还导出了 mockTasks / mockRecentTasks / allMockTasks 三份
+ * 「演示任务」种子数据（夜色频率、参赛作品等 8 条），用于在没有真实检测时
+ * 撑起工作台与检测中心的界面。这些演示任务已整体移除：
+ *   · 工作台与检测中心现在只展示本次会话里真实上传产生的任务；
+ *   · 没有任务时由 EmptyState 展示空态引导，不再出现假数据。
+ * 仍然保留的是「检测结果生成器」与检测类型字典——它们是真实上传流程
+ * 计算结论时用到的能力，不是展示数据。
+ */
 
 /**
  * 确定性伪随机：保证服务端 / 客户端渲染出的波形一致，避免 hydration mismatch
@@ -31,11 +42,6 @@ export function generateWaveform(seed: number, bars = 168): number[] {
   }
   return raw;
 }
-
-import { MOCK_NOW } from "./utils";
-
-const MINUTE = 60 * 1000;
-const ago = (minutes: number) => new Date(MOCK_NOW - minutes * MINUTE).toISOString();
 
 /** 检测类型选项 */
 export const detectTypeOptions: DetectTypeOption[] = [
@@ -141,131 +147,6 @@ export function buildScenarioResult(input: {
     ],
   };
 }
-
-/** 任务列表（6 条，覆盖全部状态） */
-export const mockTasks: Task[] = [
-  {
-    id: "tsk_20260930_001",
-    fileName: "夜色频率_remix_final.wav",
-    fileSize: 42_380_000,
-    duration: 204,
-    createdAt: ago(24),
-    status: "done",
-    detectType: "comprehensive",
-    progress: 100,
-    result: buildScenarioResult({
-      taskId: "tsk_20260930_001",
-      fileName: "夜色频率_remix_final.wav",
-      duration: 204,
-      detectType: "comprehensive",
-      createdAt: ago(24),
-    }),
-  },
-  {
-    id: "tsk_20260930_002",
-    fileName: "demo_vocal_take3.mp3",
-    fileSize: 6_840_000,
-    duration: 187,
-    createdAt: ago(96),
-    status: "analyzing",
-    detectType: "ai",
-    progress: 58,
-  },
-  {
-    id: "tsk_20260930_003",
-    fileName: "广告配乐_待审核.flac",
-    fileSize: 28_120_000,
-    duration: 231,
-    createdAt: ago(142),
-    status: "queued",
-    detectType: "plagiarism",
-    progress: 0,
-  },
-  {
-    id: "tsk_20260929_004",
-    fileName: "参赛作品_07_海边的信.mp3",
-    fileSize: 7_960_000,
-    duration: 198,
-    createdAt: ago(180),
-    status: "done",
-    detectType: "comprehensive",
-    progress: 100,
-    result: buildScenarioResult({
-      taskId: "tsk_20260929_004",
-      fileName: "参赛作品_07_海边的信.mp3",
-      duration: 198,
-      detectType: "comprehensive",
-      createdAt: ago(180),
-    }),
-  },
-  {
-    id: "tsk_20260928_005",
-    fileName: "专辑母带_01_晨雾.wav",
-    fileSize: 51_040_000,
-    duration: 231,
-    createdAt: ago(1420),
-    status: "done",
-    detectType: "comprehensive",
-    progress: 100,
-    result: buildScenarioResult({
-      taskId: "tsk_20260928_005",
-      fileName: "专辑母带_01_晨雾.wav",
-      duration: 231,
-      detectType: "comprehensive",
-      createdAt: ago(1420),
-    }),
-  },
-  {
-    id: "tsk_20260927_006",
-    fileName: "直播切片_音频损坏.mp3",
-    fileSize: 1_240_000,
-    duration: 0,
-    createdAt: ago(1580),
-    status: "failed",
-    detectType: "ai",
-    progress: 32,
-  },
-];
-
-/** 历史任务补充（用于「最近检测」等视图） */
-export const mockRecentTasks: Task[] = [
-  {
-    id: "tsk_20260926_007",
-    fileName: "翻唱demo_潮汐之间.mp3",
-    fileSize: 8_320_000,
-    duration: 176,
-    createdAt: ago(2680),
-    status: "done",
-    detectType: "comprehensive",
-    progress: 100,
-    result: buildScenarioResult({
-      taskId: "tsk_20260926_007",
-      fileName: "翻唱demo_潮汐之间.mp3",
-      duration: 176,
-      detectType: "comprehensive",
-      createdAt: ago(2680),
-    }),
-  },
-  {
-    id: "tsk_20260925_008",
-    fileName: "独立发行_晨雾B面.wav",
-    fileSize: 46_720_000,
-    duration: 198,
-    createdAt: ago(4300),
-    status: "done",
-    detectType: "comprehensive",
-    progress: 100,
-    result: buildScenarioResult({
-      taskId: "tsk_20260925_008",
-      fileName: "独立发行_晨雾B面.wav",
-      duration: 198,
-      detectType: "comprehensive",
-      createdAt: ago(4300),
-    }),
-  },
-];
-
-export const allMockTasks: Task[] = [...mockTasks, ...mockRecentTasks];
 
 /** 个人账户 mock */
 export const mockAccount = {

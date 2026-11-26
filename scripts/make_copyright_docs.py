@@ -1,7 +1,7 @@
 """生成软著登记用的两份材料（源程序 / 软件说明书）。
 
 用法（项目根目录）：
-    .venv-infer\\Scripts\\python.exe scripts\\make_copyright_docs.py
+    D:\\yinbian-venv\\Scripts\\python.exe scripts\\make_copyright_docs.py
 
 产出（默认在 软著材料/ 下）：
     音辩卫士V1.0_源程序.docx      —— 前 30 页 + 后 30 页，每页 50 行，页眉含名称/版本/页码
@@ -55,7 +55,7 @@ EXTRA_FILES = [
     "tsconfig.json",
     "package.json",
 ]
-EXCLUDE_DIRS = {"node_modules", ".next", ".venv-infer", "__pycache__", "软著材料", ".git"}
+EXCLUDE_DIRS = {"node_modules", ".next", "yinbian-venv", "__pycache__", "软著材料", ".git"}
 
 
 def comment_banner(rel_path: str) -> str:

@@ -17,9 +17,13 @@ export function TaskList({ tasks, selectedId, onSelect, searchTerm }: TaskListPr
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       {tasks.map((task, index) => (
-        <div key={task.id} className="animate-fade-up" style={{ animationDelay: `${index * 40}ms` }}>
+        <div
+          key={task.id}
+          className="animate-fade-up relative hover:z-10"
+          style={{ animationDelay: `${index * 40}ms` }}
+        >
           <TaskCard task={task} selected={task.id === selectedId} onSelect={onSelect} />
         </div>
       ))}

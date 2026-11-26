@@ -36,7 +36,7 @@ export function DetectTypeSelector({
             className={cn(
               "group relative rounded-xl border p-4 text-left transition-all duration-200",
               active
-                ? "border-primary/55 bg-primary/[0.08] shadow-[0_0_0_1px_rgba(45,212,191,0.2)]"
+                ? "border-primary/55 bg-primary/[0.08] ring-1 ring-primary/20"
                 : "border-border bg-card hover:border-primary/40",
               disabled && "pointer-events-none opacity-60"
             )}

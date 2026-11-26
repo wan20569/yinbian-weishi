@@ -18,10 +18,21 @@ export type InferenceStatus = "idle" | "skipped" | "loading" | "done" | "failed"
 /**
  * 结果来源，用于界面徽章：
  *   model    模型实时判定
- *   fallback 模型推理失败 · 已降级随机
- *   scenario 无原始音频 · 随机结果
+ *   failed   检测失败（模型请求失败 / 超时 / 返回体不合法）—— 不再用随机数冒充结果
+ *   noFile   无原始音频（预设任务 / 刷新后内存文件丢失）—— 明确提示，不冒充结果
  */
-export type ResultSource = "model" | "scenario" | "fallback";
+export type ResultSource = "model" | "failed" | "noFile";
+
+/**
+ * 检测失败的明确原因。用于日志与页面可见提示，方便定位「时好时坏」的间歇性问题。
+ */
+export type FailureReason =
+  | "no-file" // 没有可推理的原始音频（刷新后 File 丢失 / 预设任务）
+  | "timeout" // 推理请求超时
+  | "http-error" // 后端返回非 2xx
+  | "invalid-payload" // 返回体不合法（缺字段 / 数值越界）
+  | "aborted" // 请求被中断（切任务 / 组件卸载）
+  | "network-error"; // 网络错误（断网 / DNS / CORS / 5xx 等）
 
 export interface PhaseMeta {
   key: DetectionPhase;
@@ -81,6 +92,10 @@ export function useDetectionSimulation(
   const [inferenceStatus, setInferenceStatus] = React.useState<InferenceStatus>("idle");
   /** 是否真的发出过推理请求 —— 用来区分「没音频可测」和「测了但没拿到结果」 */
   const [attempted, setAttempted] = React.useState(false);
+  /** 失败的具体原因，用于日志与页面可见提示 */
+  const [failureReason, setFailureReason] = React.useState<FailureReason | null>(null);
+  /** 重试计数：每次重试自增，用于触发推理 effect 重新执行 */
+  const [retryTick, setRetryTick] = React.useState(0);
 
   const timerRef = React.useRef<number | null>(null);
   const firedRef = React.useRef(false);
@@ -125,6 +140,7 @@ export function useDetectionSimulation(
     setLive(null);
     setInferenceStatus("idle");
     setAttempted(false);
+    setFailureReason(null);
 
     // 随机只在副作用里跑一次：同一 taskId 结果稳定，且不在 render 阶段调用随机函数
     setMetrics(generateRandomResult(current.id, current.duration || 204));
@@ -142,12 +158,9 @@ export function useDetectionSimulation(
       setStarted(true);
       timerRef.current = window.setInterval(() => {
         setProgress((prev) => {
+          if (prev >= 100) return 100;
           const next = prev + 0.8 + Math.random() * 1.1;
-          if (next >= 100) {
-            stop();
-            return 100;
-          }
-          return next;
+          return next >= 100 ? 100 : next;
         });
       }, 60);
     }, 420);
@@ -158,6 +171,20 @@ export function useDetectionSimulation(
     };
   }, [stop, cancelInference]);
 
+  /**
+   * 到 100% 就收掉定时器。
+   *
+   * 这里必须放在 effect 里，不能像以前那样写在 setProgress 的 updater 内：
+   * updater 在 StrictMode 下会被双调用、并发渲染时还可能被整次丢弃。一旦
+   * 「跨过 100% 的那次调用」被丢弃，updater 里的 stop() 已经把定时器清掉了，
+   * 而提交出去的进度还停在 99.x —— 结果就是进度条看着是 100%（Math.round
+   * 取整）、文案还是「检测进行中」、phase 永远到不了 finished，
+   * 即使模型结果早就返回（inferenceStatus 已是 done）页面也不出结果。
+   */
+  React.useEffect(() => {
+    if (progress >= 100) stop();
+  }, [progress, stop]);
+
   /** 进度过 30% 时发起一次真实推理（只发一次） */
   React.useEffect(() => {
     if (firedRef.current) return;
@@ -165,18 +192,28 @@ export function useDetectionSimulation(
     if (!currentTaskId) return;
     if (progress < INFERENCE_TRIGGER) return;
 
-    firedRef.current = true;
-
-    // 拿不到原始文件（预设任务 / 刷新后内存清空）就没法推理，直接用种子随机结果
+    /**
+     * 拿不到原始文件（预设任务 / 刷新后内存清空）就没法推理。
+     * 这里不再把它当成「随机结果」，而是明确标记为「无原始音频」的失败态，
+     * 由 UI 渲染「请重新上传」提示，绝不用随机数冒充检测结论。
+     *
+     * 注意这里不能顺手置 firedRef —— file 是在另一个 effect 里异步 set 的，
+     * 首帧读到 null 是正常现象。若此时就把「机会」用掉，等 File 到位后
+     * 这个 effect（依赖里有 file）虽然会重跑，却会因为 firedRef 已为 true 而
+     * 直接 return，请求永远不会发出去。把标记放到真正发请求之前，晚到的 file 还能补发。
+     */
     if (!file) {
       setInferenceStatus("skipped");
       return;
     }
 
+    firedRef.current = true;
+
     const controller = new AbortController();
     abortRef.current = controller;
     setAttempted(true);
     setInferenceStatus("loading");
+    setFailureReason(null);
 
     /**
      * 只认「当前这次请求」的结果。
@@ -206,22 +243,25 @@ export function useDetectionSimulation(
           return;
         }
         abortRef.current = null;
-        // 超时 / 后端未启动 / 返回体不合法 —— 一律降级到随机结果，不抛给页面
-        console.warn("[detect] 模型推理失败，已降级为随机结果：", error);
+        // 分类失败原因：便于日志与页面提示，定位「时好时坏」的间歇性问题
+        const reason = classifyFailure(error);
+        console.warn(`[detect] 模型推理失败（原因: ${reason}）：`, error);
+        setFailureReason(reason);
         setInferenceStatus("failed");
       });
-  }, [progress, file]);
+  }, [progress, file, retryTick]);
 
   /**
    * 看门狗：万一请求既没成功也没失败（极端竞态 / 进程被挂起），
-   * 超过超时预算还没落状态就强制降级，保证页面不会永远停在骨架屏。
+   * 超过超时预算还没落状态就强制失败，保证页面不会永远停在骨架屏。
    */
   React.useEffect(() => {
     if (inferenceStatus !== "loading") return;
     const timer = window.setTimeout(() => {
       setInferenceStatus((prev) => {
         if (prev !== "loading") return prev;
-        console.warn("[detect] 推理请求超过预算未返回，已强制降级为随机结果");
+        console.warn("[detect] 推理请求超过预算未返回，已强制失败（原因: timeout）");
+        setFailureReason("timeout");
         return "failed";
       });
     }, INFERENCE_TIMEOUT_MS + 2_000);
@@ -236,15 +276,34 @@ export function useDetectionSimulation(
 
   /**
    * 三态数据来源，直接对应界面徽章：
-   *   model    —— 模型返回成功，界面用真实数值
-   *   fallback —— 发出过请求但没拿到结果（超时 / 5xx / 被中断 / 返回体不合法），用随机结果兜底
-   *   scenario —— 根本没有音频可推理（预设任务、刷新后 File 丢失），用种子随机
+   *   model  —— 模型返回成功，界面用真实数值
+   *   failed —— 发出过请求但没拿到结果（超时 / 5xx / 被中断 / 返回体不合法），
+   *             现在不再用随机数冒充结果，而是渲染「检测失败」错误态
+   *   noFile —— 根本没有音频可推理（预设任务、刷新后 File 丢失），渲染「请重新上传」
    */
   const source: ResultSource = live
     ? "model"
     : attempted || inferenceStatus === "failed"
-      ? "fallback"
-      : "scenario";
+      ? "failed"
+      : "noFile";
+
+  /**
+   * 重试：清空失败态与「已发起」标记，让推理 effect 重新跑一次。
+   * 仅在失败/无音频且没有可推理文件时提供（noFile 态不提供，因为没文件重试也无意义，
+   * 应引导用户重新上传）。
+   */
+  const retry = React.useCallback(() => {
+    // 只有真的失败过（有 file 但请求失败）才允许重试；无音频态重试无意义
+    if (inferenceStatus === "failed" || attempted) {
+      firedRef.current = false;
+      setLive(null);
+      setFailureReason(null);
+      setInferenceStatus("idle");
+      setAttempted(false);
+      setRetryTick((n) => n + 1);
+      console.info("[detect] 用户手动重试检测");
+    }
+  }, [inferenceStatus, attempted]);
 
   return {
     progress,
@@ -255,6 +314,28 @@ export function useDetectionSimulation(
     metrics,
     live,
     inferenceStatus,
+    /** 本地链路已跑完、只差模型返回：界面据此展示「等待模型返回」，而不是装作卡死 */
+    waitingForInference,
     source,
+    failureReason,
+    retry,
   };
+}
+
+/**
+ * 把 runInference 抛出的错误归类为明确的失败原因，供日志与页面提示。
+ * 这里不吞细节：原始 error 会在调用处一并 console.warn 打印出来。
+ */
+function classifyFailure(error: unknown): FailureReason {
+  const msg = error instanceof Error ? error.message : String(error);
+  if (/超时|timeout|timed out/i.test(msg)) return "timeout";
+  // InferenceError 带 status：后端返回了非 2xx
+  const status = (error as { status?: number }).status;
+  if (typeof status === "number") return "http-error";
+  if (/abort/i.test(msg)) return "aborted";
+  // 返回体不合法（缺字段 / 数值越界）—— InferenceError 无 status 且 message 含字段提示
+  if (msg.includes("不是有效数字") || msg.includes("超出 0~100") || msg.includes("不是 JSON")) {
+    return "invalid-payload";
+  }
+  return "network-error";
 }

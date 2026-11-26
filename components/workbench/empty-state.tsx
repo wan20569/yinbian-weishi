@@ -1,12 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { FolderOpen, SearchX, Sparkles, Upload } from "lucide-react";
+import { FolderOpen, Inbox, SearchX, Sparkles, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type EmptyVariant = "no-task" | "no-result" | "search" | "reports" | "profile";
+export type EmptyVariant =
+  | "no-task"
+  | "no-result"
+  | "search"
+  | "reports"
+  | "profile"
+  | "notifications";
 
 const presets: Record<
   EmptyVariant,
@@ -37,6 +43,11 @@ const presets: Record<
     title: "账户信息未加载",
     description: "请稍后重试，或联系客服协助开通账户。",
   },
+  notifications: {
+    icon: Inbox,
+    title: "暂无通知",
+    description: "检测完成、风险命中与系统更新都会在这里提醒你。",
+  },
 };
 
 export function EmptyState({
@@ -45,6 +56,8 @@ export function EmptyState({
   compact = false,
   action,
   footer,
+  title,
+  description,
 }: {
   variant?: EmptyVariant;
   className?: string;
@@ -52,6 +65,9 @@ export function EmptyState({
   action?: "upload" | "none";
   /** 空态下方的补充操作区，例如「载入示例报告」 */
   footer?: React.ReactNode;
+  /** 覆盖预设标题（通知页三个 Tab 的空态文案不同，复用同一套版式） */
+  title?: string;
+  description?: string;
 }) {
   const preset = presets[variant];
   const Icon = preset.icon;
@@ -68,9 +84,9 @@ export function EmptyState({
       <span className="grid h-12 w-12 place-items-center rounded-xl border border-border bg-secondary/70">
         <Icon className="h-5 w-5 text-primary" />
       </span>
-      <p className="mt-4 text-[13px] font-medium text-foreground">{preset.title}</p>
+      <p className="mt-4 text-[13px] font-medium text-foreground">{title ?? preset.title}</p>
       <p className="mt-1.5 max-w-[340px] text-xs leading-5 text-muted-foreground">
-        {preset.description}
+        {description ?? preset.description}
       </p>
       {showUpload === "upload" ? (
         <Link href="/detect/new" className="mt-5">

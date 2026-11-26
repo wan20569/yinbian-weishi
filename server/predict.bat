@@ -10,9 +10,9 @@ if "%~1"=="" (
 )
 
 if "%~2"=="" (
-    ".venv-infer\Scripts\python.exe" "server\infer.py" "%~1"
+    "D:\yinbian-venv\Scripts\python.exe" "server\infer.py" "%~1"
 ) else (
-    ".venv-infer\Scripts\python.exe" "server\infer.py" %*
+    "D:\yinbian-venv\Scripts\python.exe" "server\infer.py" %*
 )
 echo.
 pause
